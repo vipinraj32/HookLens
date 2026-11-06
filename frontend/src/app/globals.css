@@ -4,17 +4,19 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  /* Near-black purple base with a pink/magenta accent and a violet secondary. */
-  --color-bg: oklch(0.145 0.025 300);
-  --color-surface: oklch(0.185 0.032 300);
-  --color-surface-2: oklch(0.225 0.038 300);
-  --color-line: oklch(0.31 0.04 300);
-  --color-fg: oklch(0.96 0.008 320);
-  --color-muted: oklch(0.76 0.03 310);
-  --color-faint: oklch(0.62 0.035 305);
-  --color-accent: oklch(0.76 0.19 335);
-  --color-accent-strong: oklch(0.69 0.21 340);
-  --color-violet: oklch(0.7 0.17 295);
+  /* HookLens brand kit (src/app/assest): magenta #FF0099 on ink #17141B, greys #BDB5C1 / #716B75.
+     Contrast (WCAG): accent on bg 5.3, on surface 5.0; muted 9.8; faint 6.5. Text on accent uses ink. */
+  --color-bg: #0e0c11;
+  --color-surface: #17141b; /* brand ink */
+  --color-surface-2: #1f1b24;
+  --color-line: #2c2732;
+  --color-line-strong: #716b75; /* brand grey: borders and decoration only, never body text */
+  --color-fg: #f4f1f6;
+  --color-muted: #bdb5c1; /* brand light grey */
+  --color-faint: #9a93a0;
+  --color-accent: #ff0099; /* brand magenta */
+  --color-accent-strong: #ff3dae; /* hover: brighter, keeps ink text at 6:1 */
+  --color-violet: #b9a4ff;
 
   --color-sev-critical: oklch(0.66 0.22 20);
   --color-sev-high: oklch(0.72 0.18 45);
@@ -164,4 +166,11 @@ body {
   background:
     radial-gradient(60rem 30rem at 15% -10%, color-mix(in oklch, var(--color-accent) 16%, transparent), transparent 70%),
     radial-gradient(40rem 24rem at 95% 10%, color-mix(in oklch, var(--color-violet) 16%, transparent), transparent 70%);
+}
+
+/* ---------- Hero pipeline (illustrative) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .pipeline-progress {
+    transition: width 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
 }

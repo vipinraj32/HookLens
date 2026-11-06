@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, type ReactNode } from "react";
 
+import { BrandHomeLink } from "@/components/brand";
 import { useChains, useWorkerHealth } from "@/lib/api/hooks";
 import { cn } from "@/lib/format";
 import { useNetwork } from "@/lib/network";
@@ -26,36 +27,40 @@ const DOCS = "https://github.com/vipinraj32/HookLens/tree/main/docs";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; match: (p: string) => boolean };
 
-const NAV: NavItem[] = [
-  { href: "/app", label: "Overview", icon: LayoutDashboard, match: (p) => p === "/app" },
-  { href: "/app/scan", label: "Hook Scanner", icon: ScanSearch, match: (p) => p === "/app/scan" },
+/** Grouped by the HookLens workflow: analyze a hook, test it on a fork, then report. */
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
-    href: "/app/scans",
-    label: "Hook Intelligence",
-    icon: ShieldAlert,
-    match: (p) => p === "/app/scans" || (p.startsWith("/app/scans/") && !p.endsWith("/lab")),
+    label: "Analyze",
+    items: [
+      { href: "/app", label: "Overview", icon: LayoutDashboard, match: (p) => p === "/app" },
+      { href: "/app/scan", label: "Hook Scanner", icon: ScanSearch, match: (p) => p === "/app/scan" },
+      {
+        href: "/app/scans",
+        label: "Hook Intelligence",
+        icon: ShieldAlert,
+        match: (p) => p === "/app/scans" || (p.startsWith("/app/scans/") && !p.endsWith("/lab")),
+      },
+    ],
   },
   {
-    href: "/app/lab",
-    label: "Adversarial Lab",
-    icon: FlaskConical,
-    match: (p) => p === "/app/lab" || /^\/app\/scans\/[^/]+\/lab$/.test(p),
+    label: "Test & measure",
+    items: [
+      {
+        href: "/app/lab",
+        label: "Adversarial Lab",
+        icon: FlaskConical,
+        match: (p) => p === "/app/lab" || /^\/app\/scans\/[^/]+\/lab$/.test(p),
+      },
+      { href: "/app/evidence", label: "Evidence", icon: FileSearch, match: (p) => p.startsWith("/app/evidence") },
+      { href: "/app/lp", label: "LP Exposure", icon: Gauge, match: (p) => p.startsWith("/app/lp") },
+    ],
   },
-  { href: "/app/lp", label: "LP Exposure", icon: Gauge, match: (p) => p.startsWith("/app/lp") },
-  { href: "/app/reports", label: "Reports", icon: FileText, match: (p) => p.startsWith("/app/reports") },
-  { href: "/app/evidence", label: "Evidence", icon: FileSearch, match: (p) => p.startsWith("/app/evidence") },
+  {
+    label: "Report",
+    items: [{ href: "/app/reports", label: "Reports", icon: FileText, match: (p) => p.startsWith("/app/reports") }],
+  },
 ];
-
-function Logo() {
-  return (
-    <Link href="/" className="flex items-center gap-2 px-2 text-fg">
-      <span aria-hidden="true" className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-violet">
-        <span className="size-2.5 rounded-full bg-bg" />
-      </span>
-      <span className="text-[15px] font-semibold tracking-tight">HookLens</span>
-    </Link>
-  );
-}
+const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 function DocsLink() {
   return (
@@ -77,28 +82,38 @@ function DocsLink() {
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <ul className="flex flex-col gap-0.5">
-      {NAV.map(({ href, label, icon: Icon, match }) => {
-        const active = match(pathname);
-        return (
-          <li key={href}>
-            <Link
-              href={href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg",
-                active && "bg-accent/10 text-fg ring-1 ring-accent/30",
-              )}
-            >
-              <Icon aria-hidden="true" className={cn("size-4", active && "text-accent")} />
-              {label}
-            </Link>
-          </li>
-        );
-      })}
-      <DocsLink />
-    </ul>
+    <div className="flex flex-col gap-4">
+      {NAV_GROUPS.map((g) => (
+        <div key={g.label}>
+          <p className="mb-1 px-2.5 text-[11px] font-medium uppercase tracking-wider text-faint">{g.label}</p>
+          <ul className="flex flex-col gap-0.5">
+            {g.items.map(({ href, label, icon: Icon, match }) => {
+              const active = match(pathname);
+              return (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg",
+                      active &&
+                        "bg-accent/10 text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent",
+                    )}
+                  >
+                    <Icon aria-hidden="true" className={cn("size-4", active && "text-accent")} />
+                    {label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+      <ul>
+        <DocsLink />
+      </ul>
+    </div>
   );
 }
 
@@ -150,7 +165,7 @@ function SystemStatus() {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-6 px-3 py-4">
-      <Logo />
+      <BrandHomeLink height={24} className="self-start" />
       <nav aria-label="Main">
         <Suspense fallback={<NavFallback />}>
           <NavLinks onNavigate={onNavigate} />
@@ -364,14 +379,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mainId = "app-main";
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-line bg-surface/80 lg:block">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 overflow-y-auto border-r border-line bg-surface lg:block">
         <SidebarContent />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur lg:px-8">
           <MobileDrawer mainId={mainId} />
           <span className="lg:hidden">
-            <Logo />
+            <BrandHomeLink height={22} />
           </span>
           <span className="hidden min-w-0 flex-1 lg:block">
             <Suspense fallback={null}>

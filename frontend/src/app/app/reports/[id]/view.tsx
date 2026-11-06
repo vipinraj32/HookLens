@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { ScanWorkflow } from "@/components/workflow";
 import { Badge, Button, Card, CardBody, CardHeader, CodeBlock, CopyButton, ErrorState, KV, Mono, Notice, PageHeader, SeverityBadge, Spinner, StatusBadge, TagBadge } from "@/components/ui";
 import { apiUrl } from "@/lib/api/client";
-import { useReport } from "@/lib/api/hooks";
+import { useReport, useScan } from "@/lib/api/hooks";
 import { SEVERITIES } from "@/lib/api/models";
 import { cn, formatDate, formatDuration, groupDecimal, humanize } from "@/lib/format";
 
@@ -141,6 +142,11 @@ function ReportFindings({ findings, scanId }: { findings: RFinding[]; scanId: st
   );
 }
 
+function ReportWorkflow({ scanId }: { scanId: string }) {
+  const scan = useScan(scanId);
+  return scan.data ? <ScanWorkflow scan={scan.data} current="report" /> : null;
+}
+
 export function ReportView() {
   const { id } = useParams<{ id: string }>();
   const rep = useReport(id);
@@ -155,6 +161,7 @@ export function ReportView() {
 
   return (
     <>
+      <ReportWorkflow scanId={r.scan_id} />
       <PageHeader
         eyebrow="Report"
         title={String(idn.contract_name ?? "Hook report")}
@@ -188,6 +195,30 @@ export function ReportView() {
           </>
         }
       />
+
+      <section aria-label="Assumptions and limitations" className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="border-warn/30">
+          <CardHeader title="Assumptions" description="What these results take as given." />
+          <CardBody>
+            {(c.assumptions ?? []).length ? (
+              <ul className="list-disc pl-5 text-sm text-muted">{(c.assumptions ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
+            ) : (
+              <p className="text-sm text-faint">None recorded.</p>
+            )}
+          </CardBody>
+        </Card>
+        <Card className="border-warn/30">
+          <CardHeader title="Limitations" description="Read these before relying on any result below." />
+          <CardBody>
+            {(c.limitations ?? []).length ? (
+              <ul className="list-disc pl-5 text-sm text-muted">{(c.limitations ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
+            ) : (
+              <p className="text-sm text-faint">None recorded.</p>
+            )}
+          </CardBody>
+        </Card>
+      </section>
+
       <Notice className="mb-6">{c.disclaimer}</Notice>
       {r.status === "pdf_failed" ? <Notice tone="warn" className="mb-6">The PDF failed to render; the JSON report is complete.</Notice> : null}
 
@@ -274,21 +305,6 @@ export function ReportView() {
           </CardBody>
         </Card>
       ) : null}
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Assumptions" />
-          <CardBody>
-            <ul className="list-disc pl-5 text-sm text-muted">{(c.assumptions ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Limitations" />
-          <CardBody>
-            <ul className="list-disc pl-5 text-sm text-muted">{(c.limitations ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
-          </CardBody>
-        </Card>
-      </div>
 
       {c.reproduction ? (
         <Card className="mt-6">

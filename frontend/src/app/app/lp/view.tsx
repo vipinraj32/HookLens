@@ -26,6 +26,7 @@ import {
 } from "@/components/ui";
 import { isTerminal, useCompare, useScan, useScans, useSimulations, type CompareBody } from "@/lib/api/hooks";
 import { RangeBar } from "@/components/range-bar";
+import { ScanWorkflow } from "@/components/workflow";
 import type { Compare, Pool, Tagged } from "@/lib/api/models";
 import { formatDate, groupDecimal, humanize } from "@/lib/format";
 
@@ -300,7 +301,10 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
     if (!getValues("pool_id") && pools[0]) setValue("pool_id", pools[0].pool_id);
   }, [pools, getValues, setValue]);
   useEffect(() => {
-    if (!getValues("simulation_id") && !initialSim && done[0]) setValue("simulation_id", done[0].id);
+    // The <select> has no options until the list loads, so a value set at mount is lost in the DOM;
+    // re-apply the requested simulation (or default to the newest) once the options exist.
+    if (initialSim && done.some((s) => s.id === initialSim)) setValue("simulation_id", initialSim);
+    else if (!getValues("simulation_id") && !initialSim && done[0]) setValue("simulation_id", done[0].id);
     // only when the list first loads
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done.length]);
@@ -485,16 +489,45 @@ function ScanPicker() {
   );
 }
 
+const TAG_LEGEND: [string, string, string][] = [
+  ["on-chain", "Measured", "Read from the chain at the scan's pinned block, or derived from it with exact v4 math."],
+  ["measured", "Measured", "Observed in an executed fork simulation that you selected."],
+  ["hypothetical", "Hypothetical", "Depends on your inputs or a stated assumption (your range, price moves)."],
+  ["unavailable", "Unavailable", "Cannot be computed honestly from the data available; the reason is shown."],
+];
+
+function TagLegend() {
+  return (
+    <dl aria-label="How LP figures are labelled" className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {TAG_LEGEND.map(([tag, kind, meaning]) => (
+        <div key={tag} className="rounded-xl border border-line bg-surface px-3.5 py-3">
+          <dt className="flex items-center gap-2 text-xs font-medium text-fg">
+            <TagBadge tag={tag} /> <span className="text-faint">{kind}</span>
+          </dt>
+          <dd className="mt-1.5 text-xs text-muted">{meaning}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function LpWorkflow({ scanId }: { scanId: string }) {
+  const scan = useScan(scanId);
+  return scan.data ? <ScanWorkflow scan={scan.data} current="lp" /> : null;
+}
+
 export function LpView() {
   const params = useSearchParams();
   const scanId = params.get("scan");
   return (
     <>
+      {scanId ? <LpWorkflow scanId={scanId} /> : null}
       <PageHeader
         eyebrow="LP exposure"
         title="What is this position exposed to?"
         description="Baseline figures are exact v4 math on on-chain state. Price scenarios are hypothetical. Hook effects are measured only when you apply a simulation. Fee income is not forecast."
       />
+      <TagLegend />
       {scanId ? <LpForm key={scanId} scanId={scanId} initialPool={params.get("pool")} initialSim={params.get("sim")} /> : <ScanPicker />}
     </>
   );

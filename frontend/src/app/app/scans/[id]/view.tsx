@@ -10,6 +10,7 @@ import { FindingDetail } from "@/components/finding-detail";
 import { JobProgress } from "@/components/job-progress";
 import { PermissionMatrix } from "@/components/permission-matrix";
 import { Tab, TabPanel, Tabs, TabsList } from "@/components/tabs";
+import { ScanWorkflow } from "@/components/workflow";
 import {
   Badge,
   Button,
@@ -52,6 +53,7 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
   const findings = useFindings(scan.id, isTerminal(scan.status));
   const [sev, setSev] = useState<string>("all");
   const [basis, setBasis] = useState<string>("all");
+  const [cat, setCat] = useState<string>("all");
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string | null>(initial);
 
@@ -64,14 +66,21 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
       (f) =>
         (sev === "all" || f.severity === sev) &&
         (basis === "all" || f.confidence_basis === basis) &&
+        (cat === "all" || f.category === cat) &&
         (!needle ||
           f.title.toLowerCase().includes(needle) ||
           f.finding_id.toLowerCase().includes(needle) ||
           f.rule_id.toLowerCase().includes(needle) ||
           f.affected_functions.some((fn) => fn.toLowerCase().includes(needle))),
     );
-  }, [findings.data, sev, basis, q]);
+  }, [findings.data, sev, basis, cat, q]);
   const bases = useMemo(() => [...new Set((findings.data ?? []).map((f) => f.confidence_basis))], [findings.data]);
+  // Only categories that actually occur in this scan, with their counts.
+  const categories = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of findings.data ?? []) m.set(f.category, (m.get(f.category) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [findings.data]);
   const current: Finding | undefined = findings.data?.find((f) => f.finding_id === selected);
 
   if (!isTerminal(scan.status)) return <Spinner label="Findings appear when the scan finishes…" />;
@@ -89,6 +98,24 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="flex min-w-0 flex-col gap-3">
+        {categories.length > 1 ? (
+          <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-1.5">
+            {[["all", findings.data.length] as [string, number], ...categories].map(([c, n]) => (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={cat === c}
+                onClick={() => setCat(c)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  cat === c ? "border-accent/60 bg-accent/10 text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg",
+                )}
+              >
+                {c === "all" ? "All categories" : humanize(c)} <span className="tabular-nums text-faint">{n}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <label className="flex items-center gap-2 text-xs text-muted">
             Severity
@@ -400,6 +427,7 @@ export function ScanView() {
 
   return (
     <>
+      <ScanWorkflow scan={s} current={tab === "pools" ? "pools" : tab === "reports" ? "report" : "intelligence"} />
       <PageHeader
         eyebrow="Hook intelligence"
         title={s.contract?.contract_name ?? "Hook"}

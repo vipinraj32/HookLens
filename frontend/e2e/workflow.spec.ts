@@ -67,7 +67,8 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
 
   // ------------------------------------------------------------ adversarial lab
   await page.goto(`${scanUrl}/lab`);
-  await expect(page.getByRole("heading", { name: "Run simulation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Configure a run" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "HookLens workflow" })).toBeVisible();
   // Run only the withdrawal scenario to keep the test fast.
   const boxes = page.getByRole("group", { name: "Scenarios" }).getByRole("checkbox");
   await expect(boxes).toHaveCount(6);
@@ -78,7 +79,7 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
   await expect(page.getByRole("checkbox", { name: /^Withdrawal failure/ })).toBeChecked();
   await page.getByRole("button", { name: /Run \d+ scenarios? on fork/ }).click();
 
-  const runRow = page.getByRole("row", { name: /Withdrawal failure/ });
+  const runRow = page.getByRole("list", { name: "Scenario runs" }).getByRole("button", { name: /^Withdrawal failure:/ });
   await expect(runRow.getByText("unexpected revert")).toBeVisible({ timeout: 300_000 });
   // The failing step is auto-selected and its revert decoded from the real trace.
   await expect(page.getByText("Decoded revert")).toBeVisible();
@@ -119,7 +120,7 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
   await page.goto(scanUrl);
   await page.getByRole("tab", { name: "Reports" }).click();
   await page.getByRole("button", { name: "Generate" }).click();
-  const reportLink = page.getByRole("link", { name: /^Report / }).first();
+  const reportLink = page.getByRole("tabpanel").getByRole("link", { name: /^Report / }).first();
   await expect(reportLink).toBeVisible();
   await reportLink.click();
   await page.waitForURL(/\/app\/reports\/[0-9a-f-]+$/);

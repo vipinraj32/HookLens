@@ -29,6 +29,27 @@ These rules hold everywhere in the product UI (`/app/**` and the live parts of `
 7. **Validated responses.** Every response is parsed with a Zod schema (`src/lib/api/models.ts`)
    before it is used. A schema mismatch is shown as an error state.
 
+## Brand
+
+The official kit is in `frontend/src/app/assest/`. The UI uses these assets:
+
+| Asset | Source in the kit | Used for |
+|---|---|---|
+| `public/brand/hooklens-logo-dark.svg` | "Primary signature / dark": magenta symbol and white wordmark, cropped to its two paths (no recolouring) | Landing header and footer, app sidebar, mobile header |
+| `public/brand/hooklens-symbol.svg` | `pink_Symbol.svg` | Small marks (hero eyebrow, 404) |
+| `src/app/icon.svg`, `apple-icon.png`, `favicon.ico` | `hooklens-app-icon.svg` / `@2x.png` | Browser and app icons |
+| `src/app/opengraph-image.png` | `hooklens-social-avatar@2x.png` | Link previews |
+
+`header_logo.png` and `black_Symbol` have a near-black wordmark or symbol and disappear on the dark
+UI. `Primary signature`, `REVERSED`, `MONOCHROME` and `Clear space guidance` are specimen boards
+with labels, not embeddable logos. `components/brand.tsx` is the only place that renders the logo.
+It keeps the source aspect ratio and the clear space the kit asks for (at least ¼ of the symbol
+height).
+
+Colours come from the kit: magenta `#FF0099` (accent), ink `#17141B` (surface), `#BDB5C1`
+(muted text) and `#716B75` (borders only, because it is below AA contrast as text). Text on magenta
+is ink, not white: white on `#FF0099` is 3.7:1, ink is 5.3:1.
+
 ## Layout
 
 ```
@@ -62,6 +83,11 @@ Shared components:
 | `components/job-progress.tsx` | SSE/polling job log, the stages the backend reported, cancel |
 | `components/landing/hook-lifecycle.tsx` | Illustrative v4 call-flow diagram with step-through |
 | `components/landing/live-status.tsx` | Live server facts (chains with RPC status, Foundry, scenario count) |
+| `components/landing/hero-pipeline.tsx` | Illustrative hero pipeline (address → intelligence → lab → LP), labelled "no live data" |
+| `components/brand.tsx` | `BrandLogo`, `BrandMark`, `BrandHomeLink` |
+| `components/workflow.tsx` | Workflow stepper (address → intelligence → pools → lab → evidence → LP → report), derived from the scan, its simulations and its reports. LP exposure is never shown as done, because it is not stored |
+| `components/scenarios.tsx` | Scenario cards with LP rationale, `OutcomeBadge`, `OutcomeLegend`, `Elapsed` |
+| `lib/outcomes.ts` | Groups forge statuses into Passed / Failed / Inconclusive / Not run / Error. It never upgrades a status, and `unsupported` is never shown as passed |
 
 ### Network selector
 
