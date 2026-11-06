@@ -236,14 +236,23 @@ function PoolCard({ pool, scanId }: { pool: Pool; scanId: string }) {
 }
 
 function PoolsPanel({ scan }: { scan: Scan }) {
-  const d = scan.analysis.discovery as { status?: string; reason?: string | null; from_block?: number; scanned_to?: number } | null | undefined;
+  const d = scan.analysis.discovery as
+    | { status?: string; reason?: string | null; from_block?: number; scanned_to?: number; source?: string; notes?: string[] }
+    | null
+    | undefined;
   return (
     <div className="flex flex-col gap-4">
       {d ? (
-        <p className="text-xs text-muted">
-          Pool discovery: <StatusBadge status={d.status ?? "unknown"} /> scanned blocks {d.from_block ?? "?"}–{d.scanned_to ?? "?"}
-          {d.reason ? ` · ${d.reason}` : ""}
-        </p>
+        <div className="flex flex-col gap-1 text-xs text-muted">
+          <p>
+            Pool discovery: <StatusBadge status={d.status ?? "unknown"} /> scanned blocks {d.from_block ?? "?"}–{d.scanned_to ?? "?"}
+            {d.source === "etherscan" ? " via Etherscan" : d.source === "rpc" ? " via RPC" : ""}
+            {d.reason ? ` · ${d.reason}` : ""}
+          </p>
+          {(d.notes ?? []).map((n) => (
+            <p key={n}>{n}</p>
+          ))}
+        </div>
       ) : null}
       {scan.pools.length === 0 ? (
         <EmptyState title="No pools found">

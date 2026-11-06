@@ -36,6 +36,7 @@ retryable infrastructure errors only, and a heartbeat reaper that catches worker
 | Chain | ID | Needs |
 |---|---|---|
 | Ethereum mainnet | 1 | `HOOKLENS_MAINNET_RPC_URL` (archive node for historical blocks and forks). Verified source also needs `HOOKLENS_ETHERSCAN_API_KEY`; without it, mainnet hooks get permission and bytecode analysis only |
+| Sepolia testnet | 11155111 | `HOOKLENS_SEPOLIA_RPC_URL`. Pool discovery scans logs back to block 7,258,946 (PoolManager deployment); when the RPC plan caps `eth_getLogs` ranges (Alchemy free: 10 blocks), it falls back to Etherscan's log API if `HOOKLENS_ETHERSCAN_API_KEY` is set. The same key enables verified source |
 | Local Anvil | 31337 | `scripts/dev-chain.sh`, which deploys the HookLens fixture hooks |
 
 RPC endpoints come only from server configuration. Users cannot submit RPC URLs or any other URL
@@ -81,7 +82,8 @@ From there:
 - Compare an LP position on **LP exposure**.
 - Generate a report.
 
-For mainnet, copy `.env.example` to `.env` and set `HOOKLENS_MAINNET_RPC_URL` (and optionally
+For mainnet or Sepolia, copy `.env.example` to `.env` and set `HOOKLENS_MAINNET_RPC_URL` and/or
+`HOOKLENS_SEPOLIA_RPC_URL` (and optionally
 `HOOKLENS_ETHERSCAN_API_KEY` and `HOOKLENS_ANTHROPIC_API_KEY`).
 
 ### Docker Compose

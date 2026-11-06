@@ -18,6 +18,9 @@ os.environ["HOOKLENS_REPORTS_DIR"] = str(_TMP / "reports")
 os.environ["HOOKLENS_ENVIRONMENT"] = "test"
 os.environ["HOOKLENS_ANTHROPIC_API_KEY"] = ""
 os.environ["HOOKLENS_MAINNET_RPC_URL"] = ""
+# Never reach real external services from tests, even when the repo .env has credentials.
+os.environ["HOOKLENS_SEPOLIA_RPC_URL"] = ""
+os.environ["HOOKLENS_ETHERSCAN_API_KEY"] = ""
 os.environ["HOOKLENS_RATE_LIMIT_PER_MINUTE"] = "100000"
 os.environ["HOOKLENS_RATE_LIMIT_JOBS_PER_MINUTE"] = "100000"
 

@@ -47,16 +47,30 @@ class AccessControlAnalyzer:
             if sv.type_string.startswith("address") and sv.name.lower().strip("_") in ROLE_NAMES:
                 role_vars.setdefault(sv.name, True)
         owner_evidence = []
-        owner_value = None
-        for sv in ix.state_vars.values():
+        # (rank, name, value): several role variables can coexist (e.g. Ownable `_owner` next to a
+        # `factory` that is also allowed to call some functions). Rank owner-named variables first,
+        # then other role names, then the variable referenced by the most access checks.
+        guard_uses = {v: sum(v in g.variables for g in privileged) for v in role_vars}
+        candidates: list[tuple[tuple[int, int, int], str, str]] = []
+        for order, sv in enumerate(ix.state_vars.values()):
             if sv.name in role_vars:
                 eid = ctx.ev_state_var(out, sv)
                 owner_evidence.append(eid)
                 val = out.evidence[eid].data.get("value_at_block", {}).get("value")
-                if owner_value is None and isinstance(val, str) and val.startswith("0x") and len(val) == 42:
-                    owner_value = val
-                    ctx.facts["owner"] = val
-                    ctx.facts["owner_variable"] = sv.name
+                if isinstance(val, str) and val.startswith("0x") and len(val) == 42:
+                    base = sv.name.lower().strip("_")
+                    name_rank = 0 if base == "owner" else 1 if base in ROLE_NAMES else 2
+                    candidates.append(((name_rank, -guard_uses.get(sv.name, 0), order), sv.name, val))
+        owner_value = None
+        getter = _owner_getter(ctx)
+        if getter:
+            owner_value = getter
+            ctx.facts["owner"] = getter
+            ctx.facts["owner_variable"] = "owner()"
+        elif candidates:
+            _, name, owner_value = min(candidates)
+            ctx.facts["owner"] = owner_value
+            ctx.facts["owner_variable"] = name
         if owner_value:
             is_c = ctx.is_contract(owner_value)
             ctx.facts["owner_is_contract"] = is_c
@@ -222,3 +236,21 @@ class AccessControlAnalyzer:
 
 def _abi_sig(name: str, types: list[str]) -> str:
     return f"{name}({','.join(types)})"
+
+
+def _owner_getter(ctx: AnalysisContext) -> str | None:
+    """`owner()` at the pinned block, when the verified source exposes it (e.g. OpenZeppelin Ownable)."""
+    ix = ctx.index
+    if ix is None or ctx.rpc_call is None:
+        return None
+    if not any(f.name == "owner" and not f.params for f in ix.public_functions()):
+        return None
+    out = ctx.rpc_call(ctx.address, "0x8da5cb5b")  # owner()
+    if not out or len(out) < 66:
+        return None
+    word = int(out[2:66], 16)
+    if word == 0 or word >> 160:
+        return None
+    from eth_utils import to_checksum_address
+
+    return to_checksum_address(f"0x{word:040x}")

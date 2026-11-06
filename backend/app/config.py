@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,12 +45,14 @@ class Settings(BaseSettings):
 
     # Chains (server-side only; users can never supply RPC URLs)
     mainnet_rpc_url: SecretStr | None = None
+    sepolia_rpc_url: SecretStr | None = None
     enable_local_chain: bool = True
     local_rpc_url: str = "http://127.0.0.1:8545"
     etherscan_api_key: SecretStr | None = None
     etherscan_api_url: str = "https://api.etherscan.io/v2/api"
     rpc_timeout_s: float = 20.0
     rpc_max_retries: int = 3
+    pin_confirmations: int = 2  # default scan block = head - N on non-local chains
     log_scan_chunk_blocks: int = 50_000
     log_scan_max_chunks: int = 120
 
@@ -66,13 +68,16 @@ class Settings(BaseSettings):
     ai_timeout_s: float = 60.0
 
     # HTTP / security
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
+    # NoDecode: accept the documented comma-separated form (`a,b`) instead of requiring JSON.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    )
     workspace_secret: SecretStr = SecretStr(_DEV_WORKSPACE_SECRET)
     rate_limit_per_minute: int = 120
     rate_limit_jobs_per_minute: int = 12
     reports_dir: Path = REPO_ROOT / "backend" / "var" / "reports"
 
-    @field_validator("mainnet_rpc_url", "etherscan_api_key", "anthropic_api_key", mode="before")
+    @field_validator("mainnet_rpc_url", "sepolia_rpc_url", "etherscan_api_key", "anthropic_api_key", mode="before")
     @classmethod
     def _blank_is_unset(cls, v: object) -> object:
         # `KEY=` in a copied .env.example means "not configured", not an empty secret.

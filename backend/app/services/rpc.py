@@ -83,6 +83,14 @@ class RpcClient:
                 elif resp.status_code >= 500:
                     last = RpcUnavailable(f"The chain RPC endpoint returned HTTP {resp.status_code}.")
                 elif resp.status_code >= 400:
+                    # Some providers (e.g. Alchemy) send JSON-RPC errors such as log-range limits with
+                    # HTTP 400; classify those by their message instead of a generic HTTP error.
+                    try:
+                        err_body = resp.json()
+                    except ValueError:
+                        err_body = None
+                    if isinstance(err_body, dict) and isinstance(err_body.get("error"), dict):
+                        self._raise_rpc_error(err_body["error"], params)
                     raise RpcError("rpc_http_error", f"The chain RPC endpoint returned HTTP {resp.status_code}.")
                 else:
                     try:

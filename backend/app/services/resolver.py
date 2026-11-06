@@ -8,6 +8,7 @@ from typing import Any
 
 from app.analyzers.bytecode import EIP1167_PREFIX, analyze_bytecode, code_hash
 from app.chains import ChainConfig
+from app.config import get_settings
 from app.errors import AppError
 from app.services.evm import ZERO_ADDRESS, hex_to_bytes, selector, validate_address, word_to_address
 from app.services.rpc import RpcClient
@@ -151,7 +152,12 @@ def resolve_contract(rpc: RpcClient, chain: ChainConfig, address: str, block: in
         )
     latest = rpc.block_number()
     if block is None:
-        block = latest
+        # Pin slightly behind the head on public chains: load-balanced RPC providers can route the
+        # next request to a node that has not imported the newest block yet ("block not found"),
+        # and the newest blocks are the ones most likely to be reorged. Anvil only mines on demand,
+        # so a local chain pins its head (fixtures may sit in the newest block).
+        depth = 0 if chain.is_local else get_settings().pin_confirmations
+        block = max(0, latest - depth)
     if block < 0 or block > latest:
         raise AppError("invalid_block", f"Block {block} is outside the chain range 0..{latest}.", status_code=422)
     blk = rpc.get_block(block)

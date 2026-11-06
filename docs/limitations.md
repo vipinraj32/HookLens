@@ -12,7 +12,8 @@ HookLens reports what it analysed and executed. It does not certify safety. Spec
 - Pool discovery scans `PoolManager` `Initialize` logs in bounded chunks. On mainnet, the scan starts at
   the PoolManager deployment block and covers at most
   `log_scan_max_chunks × log_scan_chunk_blocks` blocks (6,000,000 by default). Pools created later
-  are not found unless a `pool_id` is given.
+  are not found unless a `pool_id` is given. When the RPC rejects log ranges (free-plan caps), discovery uses
+  Etherscan's log API instead (needs `HOOKLENS_ETHERSCAN_API_KEY`; capped at 300 requests).
 
 ## Simulation
 
@@ -45,5 +46,5 @@ HookLens reports what it analysed and executed. It does not certify safety. Spec
 
 - On local Windows or macOS runs, `forge` only has process-level isolation.
 - There are no user accounts: workspaces are anonymous cookies.
-- Only Ethereum mainnet and local Anvil are supported.
+- Only Ethereum mainnet, Sepolia and local Anvil are supported.
 - The Docker images were not built on the development machine (see [deployment](deployment.md)).

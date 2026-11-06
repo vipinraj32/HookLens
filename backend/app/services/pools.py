@@ -8,9 +8,11 @@ topic, so logs are filtered client-side) in chunked block ranges. Pool state is 
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import httpx
 from eth_abi import decode as abi_decode
 
 from app.chains import ChainConfig
@@ -69,10 +71,14 @@ class DiscoveryResult:
     to_block: int = 0
     scanned_to: int = 0
     reason: str | None = None
+    source: str = "rpc"  # rpc | etherscan
+    notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "status": self.status,
+            "source": self.source,
+            "notes": self.notes,
             "from_block": self.from_block,
             "to_block": self.to_block,
             "scanned_to": self.scanned_to,
@@ -134,14 +140,12 @@ def discover_pools(
             logs = rpc.get_logs(chain.pool_manager, topics, cur, end)
         except LogRangeTooLarge:
             if chunk <= 500:
-                res.status, res.reason = "partial", "RPC endpoint refuses even small log ranges."
-                return res
+                reason = "The RPC endpoint refuses even small eth_getLogs ranges (provider plan limit)."
+                return _fallback(chain, hook, to_block, pool_id, should_stop, res, reason)
             chunk //= 4
             continue
         except RpcError as e:
-            res.status = "partial" if res.pools else "failed"
-            res.reason = e.message
-            return res
+            return _fallback(chain, hook, to_block, pool_id, should_stop, res, e.message)
         for entry in logs:
             try:
                 p = _parse_initialize(entry)
@@ -155,6 +159,128 @@ def discover_pools(
         if pool_id and res.pools:
             break
     return res
+
+
+def _fallback(
+    chain: ChainConfig,
+    hook: str,
+    to_block: int,
+    pool_id: str | None,
+    should_stop: Any,
+    rpc_res: DiscoveryResult,
+    rpc_reason: str,
+) -> DiscoveryResult:
+    """Use the explorer's log index when the RPC cannot serve the scan (e.g. free-tier range limits)."""
+    s = get_settings()
+    if chain.is_local or not s.etherscan_api_key:
+        rpc_res.status = "partial" if rpc_res.pools else "failed"
+        rpc_res.reason = rpc_reason + (
+            "" if chain.is_local else " Set HOOKLENS_ETHERSCAN_API_KEY to discover pools through Etherscan instead."
+        )
+        return rpc_res
+    res = discover_pools_etherscan(chain, hook, to_block, pool_id=pool_id, should_stop=should_stop)
+    res.notes.insert(0, f"RPC log scan stopped ({rpc_reason}); pools were discovered through Etherscan instead.")
+    return res
+
+
+ETHERSCAN_PAGE = 1000
+ETHERSCAN_MAX_REQUESTS = 300
+
+
+def discover_pools_etherscan(
+    chain: ChainConfig,
+    hook: str,
+    to_block: int,
+    *,
+    pool_id: str | None = None,
+    should_stop: Any = None,
+    transport: httpx.BaseTransport | None = None,
+) -> DiscoveryResult:
+    """Discover pools from Etherscan v2 `logs/getLogs`, paging forward by block.
+
+    Each response holds at most ETHERSCAN_PAGE logs in block order, so the next window starts at the
+    last block seen; logs repeated at that boundary are de-duplicated by (tx hash, log index).
+    """
+    s = get_settings()
+    start = chain.pool_manager_deploy_block
+    res = DiscoveryResult(from_block=start, to_block=to_block, scanned_to=start - 1, source="etherscan")
+    if not chain.pool_manager or not s.etherscan_api_key:
+        res.status, res.reason = "failed", "Etherscan discovery needs a PoolManager and HOOKLENS_ETHERSCAN_API_KEY."
+        return res
+    params: dict[str, str] = {
+        "chainid": str(chain.chain_id),
+        "module": "logs",
+        "action": "getLogs",
+        "address": chain.pool_manager,
+        "topic0": INITIALIZE_TOPIC,
+        "page": "1",
+        "offset": str(ETHERSCAN_PAGE),
+        "apikey": s.etherscan_api_key.get_secret_value(),
+    }
+    if pool_id:
+        params |= {"topic1": pool_id, "topic0_1_opr": "and"}
+    seen: set[tuple[str, str]] = set()
+    cur = start
+    with httpx.Client(timeout=s.rpc_timeout_s, transport=transport) as client:
+        for n in range(ETHERSCAN_MAX_REQUESTS):
+            if should_stop and should_stop():
+                res.status, res.reason = "partial", "cancelled"
+                return res
+            if n:
+                time.sleep(0.22)  # stay under the free-tier limit of 5 requests/second
+            body = _etherscan_get(
+                client, s.etherscan_api_url, params | {"fromBlock": str(cur), "toBlock": str(to_block)}
+            )
+            if body is None:
+                res.status = "partial" if res.pools else "failed"
+                res.reason = "Etherscan log query failed (rate limit or service error)."
+                return res
+            result = body.get("result")
+            if body.get("status") != "1" or not isinstance(result, list):
+                if "no records" in str(body.get("message", "")).lower():
+                    res.scanned_to = to_block
+                    return res
+                res.status = "partial" if res.pools else "failed"
+                res.reason = f"Etherscan log query failed: {str(body.get('message') or result)[:160]}"
+                return res
+            last_block = cur
+            for entry in result:
+                key = (str(entry.get("transactionHash")), str(entry.get("logIndex")))
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    p = _parse_initialize(entry)
+                except (ValueError, KeyError, IndexError, TypeError):
+                    continue
+                last_block = max(last_block, p.init_block)
+                if p.hooks.lower() == hook.lower():
+                    res.pools.append(p)
+            if len(result) < ETHERSCAN_PAGE:
+                res.scanned_to = to_block
+                return res
+            res.scanned_to = last_block - 1
+            if pool_id and res.pools:
+                return res
+            # Continue from the last block seen (it may hold more logs); never stall on one block.
+            cur = last_block if last_block > cur else cur + 1
+    res.status = "partial"
+    res.reason = f"Stopped after {ETHERSCAN_MAX_REQUESTS} Etherscan log queries (scan limit)."
+    return res
+
+
+def _etherscan_get(client: httpx.Client, url: str, params: dict[str, str]) -> dict[str, Any] | None:
+    delay = 1.0
+    for _ in range(4):
+        try:
+            body = client.get(url, params=params).json()
+        except (httpx.HTTPError, ValueError):
+            body = None
+        if isinstance(body, dict) and "rate limit" not in str(body.get("result", "")).lower():
+            return body
+        time.sleep(delay)
+        delay *= 2
+    return None
 
 
 def _extsload(rpc: RpcClient, pm: str, slot: int, block: int) -> int:

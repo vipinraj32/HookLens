@@ -19,6 +19,12 @@ MAINNET_POOL_MANAGER = "0x000000000004444c5dc75cB358380D2e3dE08A90"
 # costs a few extra log queries, starting later could miss pools.
 MAINNET_POOL_MANAGER_DEPLOY_BLOCK = 21_600_000
 
+# Uniswap v4 PoolManager on Sepolia, from the Uniswap v4 deployments documentation. Its creation
+# transaction (0xdb2321e6dd8e0147066338043ab05d34f3b3d5cba9104c4e3286ebfd73399b8f) was mined in
+# block 7_258_946, so pool discovery starts there.
+SEPOLIA_POOL_MANAGER = "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543"
+SEPOLIA_POOL_MANAGER_DEPLOY_BLOCK = 7_258_946
+
 
 @dataclass(frozen=True)
 class ChainConfig:
@@ -80,7 +86,19 @@ def load_chains(settings: Settings | None = None) -> dict[int, ChainConfig]:
             explorer_url="https://etherscan.io",
             rpc_url=s.mainnet_rpc_url.get_secret_value() if s.mainnet_rpc_url else None,
             notes=[] if s.mainnet_rpc_url else ["HOOKLENS_MAINNET_RPC_URL is not configured on this server."],
-        )
+        ),
+        11155111: ChainConfig(
+            chain_id=11155111,
+            name="Sepolia Testnet",
+            short_name="sepolia",
+            native_symbol="ETH",
+            pool_manager=SEPOLIA_POOL_MANAGER,
+            pool_manager_deploy_block=SEPOLIA_POOL_MANAGER_DEPLOY_BLOCK,
+            explorer_name="Etherscan (Sepolia)",
+            explorer_url="https://sepolia.etherscan.io",
+            rpc_url=s.sepolia_rpc_url.get_secret_value() if s.sepolia_rpc_url else None,
+            notes=[] if s.sepolia_rpc_url else ["HOOKLENS_SEPOLIA_RPC_URL is not configured on this server."],
+        ),
     }
     if s.enable_local_chain:
         pm = _local_pool_manager(s)

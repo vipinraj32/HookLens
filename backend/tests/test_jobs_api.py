@@ -183,11 +183,12 @@ def test_production_requires_a_real_workspace_secret() -> None:
 
     from app.config import Settings
 
+    # _env_file=None: judge the guard itself, not whatever secret a developer's .env provides.
     with pytest.raises(ValidationError):
-        Settings(environment="production")
+        Settings(_env_file=None, environment="production")
     with pytest.raises(ValidationError):
-        Settings(environment="production", workspace_secret="short")
-    assert Settings(environment="production", workspace_secret="x" * 40).environment == "production"
+        Settings(_env_file=None, environment="production", workspace_secret="short")
+    assert Settings(_env_file=None, environment="production", workspace_secret="x" * 40).environment == "production"
 
 
 def test_simulations_route_to_the_hardened_queue() -> None:
@@ -203,3 +204,25 @@ def test_blank_env_values_mean_unset() -> None:
     s = Settings(mainnet_rpc_url="", etherscan_api_key=" ", anthropic_api_key="", workspace_secret="")
     assert s.mainnet_rpc_url is None and s.etherscan_api_key is None and not s.ai_enabled
     assert len(s.workspace_secret.get_secret_value()) >= 32
+
+
+def test_sepolia_chain_registry() -> None:
+    from app.chains import SEPOLIA_POOL_MANAGER, load_chains
+    from app.config import Settings
+
+    off = load_chains(Settings(sepolia_rpc_url=""))[11155111]
+    assert off.pool_manager == SEPOLIA_POOL_MANAGER and not off.rpc_configured
+    assert any("HOOKLENS_SEPOLIA_RPC_URL" in n for n in off.notes)
+
+    on = load_chains(Settings(sepolia_rpc_url="https://sepolia.example/v3/abcdefghijklmnopqrstuvwxyz"))[11155111]
+    assert on.rpc_configured and on.pool_manager_deploy_block == 7_258_946
+    public = on.public_dict()
+    assert "rpc_url" not in public and "abcdefghij" not in str(public)  # the RPC URL never leaves the server
+    assert public["source_verification"] == "etherscan"
+
+
+def test_cors_origins_from_env_comma_separated(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import Settings
+
+    monkeypatch.setenv("HOOKLENS_CORS_ORIGINS", "http://localhost:3000, https://app.example")
+    assert Settings().cors_origins == ["http://localhost:3000", "https://app.example"]

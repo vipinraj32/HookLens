@@ -70,6 +70,28 @@ v4-periphery `c6e4754`, v4-core `59d3ecf`.
   - *Observed:* 25 errors, all type-narrowing (Optional values that were already checked at
     runtime, and a reused loop variable). None changed behaviour.
   - *Fix:* all corrected, and mypy is now part of the backend CI job.
+- **Scans failing on load-balanced RPCs** (found by a live Sepolia scan).
+  - *Observed:* a scan on a public Sepolia RPC failed with `archive_state_unavailable`.
+  - *Root cause:* HookLens pinned the head block and then asked for code at it. The next request
+    reached a backend node that had not imported that block yet ("block not found"), and the RPC
+    client classifies that message as missing archive state.
+  - *Fix:* when no block is given, non-local chains now pin `head - 2` (`pin_confirmations`).
+    Anvil still pins its head.
+- **Pool discovery impossible on free RPC plans** (found by live Sepolia scans).
+  - *Observed:* Alchemy's free plan rejects `eth_getLogs` over more than 10 blocks, answering with
+    HTTP 400. HookLens reported that as a generic "HTTP 400". Sepolia's v4 history is about
+    4.8 million blocks, roughly 480,000 requests at that size.
+  - *Fix:* the RPC client now reads JSON-RPC error bodies on HTTP 4xx responses, so range limits
+    are recognised. Discovery then falls back to Etherscan v2 `logs/getLogs`, paging by block and
+    de-duplicating at page boundaries. A live Sepolia scan found 114 pools for one hook this way.
+- **Owner detection picked the wrong role** (found by a live Sepolia fork simulation).
+  - *Observed:* for a verified hook with both an OpenZeppelin `_owner` and a `factory` variable,
+    HookLens chose `factory` as the owner. The lab's "authorized" admin calls then reverted with
+    `OwnableUnauthorizedAccount`.
+  - *Root cause:* the first address-typed role variable found was taken as the owner.
+  - *Fix:* use `owner()` at the pinned block when the source exposes it. Otherwise rank owner-named
+    variables first, then other role names, then the variable most used by access checks. After the
+    fix, the same simulation's authorized calls succeed.
 - **Anvil integration tests could skip silently in CI.**
   - *Fix:* `HL_TEST_ANVIL=1` now turns a missing chain or forge into a hard error.
 

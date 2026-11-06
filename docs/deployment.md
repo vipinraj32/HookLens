@@ -17,6 +17,7 @@
 | `HOOKLENS_WORKSPACE_SECRET` | yes | ≥ 32 random characters. The API refuses to start in production otherwise. Generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `POSTGRES_PASSWORD` | yes | |
 | `HOOKLENS_MAINNET_RPC_URL` | for mainnet | An archive node is needed for historical blocks and forks |
+| `HOOKLENS_SEPOLIA_RPC_URL` | for Sepolia | Pool discovery needs logs from block 7,258,946: a plan without tight `eth_getLogs` range caps, or an Etherscan key for the fallback |
 | `HOOKLENS_ETHERSCAN_API_KEY` | optional | Enables verified source and therefore the source-AST analyzers |
 | `HOOKLENS_ANTHROPIC_API_KEY` | optional | Enables AI explanations (`HOOKLENS_AI_MODEL`, default `claude-opus-5-5`) |
 | `HOOKLENS_ENABLE_LOCAL_CHAIN` | optional | `true` with the `dev-chain` profile |
