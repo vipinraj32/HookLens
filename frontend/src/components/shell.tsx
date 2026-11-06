@@ -378,7 +378,7 @@ function MobileDrawer({ mainId }: { mainId: string }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const mainId = "app-main";
   return (
-    <div className="flex min-h-dvh">
+    <div className="app-shell flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 overflow-y-auto border-r border-line bg-surface lg:block">
         <SidebarContent />
       </aside>

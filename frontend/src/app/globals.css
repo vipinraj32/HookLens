@@ -174,3 +174,12 @@ body {
     transition: width 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
 }
+
+/* Dashboard (/app): no brand magenta. The accent token becomes a neutral light tone, so primary
+   actions, active states, focus rings and highlights stay visible without pink. Set on :root via
+   :has() so portalled UI (mobile drawer, dialogs) gets it too. The landing page keeps the brand. */
+:root:has(.app-shell) {
+  --color-accent: #d9d4de;
+  --color-accent-strong: #f4f1f6;
+  --color-violet: #bdb5c1;
+}
