@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HookLens: Pitch &amp; Demo Playbook</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #161a22; --surface2: #1d222c; --line: #2a303c;
+    --fg: #eef0f4; --muted: #a3a9b6; --faint: #7c8392;
+    --accent: #3fd0d4; --med: #e6c25a; --low: #79b6e8; --ok: #5fd39a; --bad: #ef6b5b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header.top { position: sticky; top: 0; z-index: 5; background: rgba(15,17,23,.9); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line); }
+  header.top .wrap { display: flex; gap: 6px; align-items: center; padding-top: 10px; padding-bottom: 10px; flex-wrap: wrap; }
+  header.top b { margin-right: auto; }
+  .tab { background: none; border: 1px solid transparent; color: var(--muted); padding: 6px 12px; border-radius: 8px;
+    cursor: pointer; font: inherit; font-size: 14px; }
+  .tab:hover { color: var(--fg); }
+  .tab[aria-selected="true"] { border-color: var(--line); background: var(--surface2); color: var(--fg); }
+  .view { display: none; padding: 32px 0 64px; }
+  .view.on { display: block; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 8px 0 12px; letter-spacing: -.02em; }
+  h2 { font-size: 22px; margin: 40px 0 12px; letter-spacing: -.01em; }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+  .lead { color: var(--muted); font-size: 17px; max-width: 760px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .card p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+  pre { background: #0b0d12; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto;
+    font-size: 13px; line-height: 1.6; margin: 10px 0; position: relative; }
+  .copy { position: absolute; top: 8px; right: 8px; background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 6px; font-size: 12px; padding: 3px 8px; cursor: pointer; }
+  .copy:hover { color: var(--fg); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--faint); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .tbl { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .steps > li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px 14px 56px; position: relative; }
+  .steps > li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 26px; height: 26px;
+    border-radius: 50%; background: var(--accent); color: #0b0d12; font-weight: 700; display: grid; place-items: center; font-size: 13px; }
+  .steps .say { display: block; margin-top: 8px; padding: 8px 12px; border-left: 3px solid var(--accent);
+    background: rgba(63,208,212,.07); color: var(--fg); font-style: italic; border-radius: 0 8px 8px 0; }
+  .steps .see { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+  .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .med { color: var(--med); } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+  .flow span { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .flow i { color: var(--faint); font-style: normal; }
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin: 8px 0; }
+  summary { cursor: pointer; padding: 12px 16px; font-weight: 600; }
+  details > div { padding: 0 16px 14px; color: var(--muted); }
+  .check { list-style: none; padding: 0; }
+  .check li { padding: 6px 0 6px 28px; position: relative; border-bottom: 1px dashed var(--line); }
+  .check input { position: absolute; left: 0; top: 9px; accent-color: var(--accent); }
+  .timer { display: inline-flex; gap: 8px; align-items: center; background: var(--surface2); border: 1px solid var(--line);
+    padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+  .timer button { background: var(--accent); color: #0b0d12; border: 0; border-radius: 6px; padding: 3px 10px; font-weight: 600; cursor: pointer; }
+  .note { border: 1px solid rgba(230,194,90,.4); background: rgba(230,194,90,.07); border-radius: 12px; padding: 12px 16px; color: var(--fg); }
+  @media (max-width: 600px) { h1 { font-size: 26px; } .steps > li { padding-left: 48px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap" role="tablist" aria-label="Sections">
+    <b>HookLens</b>
+    <button class="tab" role="tab" data-v="overview">Overview</button>
+    <button class="tab" role="tab" data-v="run">Run it</button>
+    <button class="tab" role="tab" data-v="where">Where to see what</button>
+    <button class="tab" role="tab" data-v="workflow">Full workflow</button>
+    <button class="tab" role="tab" data-v="pitch">Pitch script</button>
+    <button class="tab" role="tab" data-v="qa">Q&amp;A</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============================================================ OVERVIEW -->
+<section class="view" id="v-overview">
+  <div class="eyebrow">Uniswap v4 hooks · open source</div>
+  <h1>See what your liquidity is really exposed to.</h1>
+  <p class="lead">HookLens reads a v4 hook's code and runs it on a fork. It then shows LPs and hook developers, with evidence, when a withdrawal can be blocked, a fee raised, or accounting changed.</p>
+
+  <h2>The problem</h2>
+  <div class="grid">
+    <div class="card"><h3>Hooks are arbitrary code in the swap path</h3><p>A hook can revert withdrawals, override fees, call oracles, take a cut of swap amounts (return deltas) or be upgraded. None of this shows up in the pool key.</p></div>
+    <div class="card"><h3>LPs can't read Solidity</h3><p>Deciding whether to deposit into a hooked pool today means trusting the deployer or reading the code yourself.</p></div>
+    <div class="card"><h3>Developers have no v4-specific CI check</h3><p>General Solidity linters don't understand hook permissions, return deltas, or the PoolManager lifecycle.</p></div>
+  </div>
+
+  <h2>What HookLens is</h2>
+  <div class="tbl"><table>
+    <tr><th>Surface</th><th>For</th><th>Input</th><th>Output</th></tr>
+    <tr><td><b>Web app</b></td><td>LPs, researchers, integrators</td><td>A deployed hook address (Ethereum, Sepolia, local Anvil)</td><td>Findings with evidence, fork simulations, LP exposure, AI explanations, JSON and PDF reports</td></tr>
+    <tr><td><b>CLI</b> <code>hooklens</code></td><td>Hook developers, auditors</td><td>Solidity source: a local project or a public GitHub repo</td><td>HTML, JSON and SARIF reports, plus a severity gate</td></tr>
+    <tr><td><b>GitHub Action</b></td><td>Hook teams</td><td>Every PR and push</td><td>Job summary, Code Scanning alerts, report artifacts, PR comment</td></tr>
+    <tr><td><b>Lab</b> <code>hooklens lab</code></td><td>Due diligence</td><td>A deployed hook plus a pool</td><td>Real Foundry runs on a fork: passed, failed, reverted or unsupported</td></tr>
+  </table></div>
+  <p style="color:var(--muted)">All four share <b>one analysis engine</b> (the <code>hooklens</code> Python package), so a finding has the same ID everywhere.</p>
+
+  <h2>Under the hood</h2>
+  <div class="flow"><span>Address / source</span><i>→</i><span>Resolve &amp; compile</span><i>→</i><span>Permission bits</span><i>→</i><span>10 analyzers</span><i>→</i><span>6 fork scenarios</span><i>→</i><span>LP math</span><i>→</i><span>Evidence-checked AI</span><i>→</i><span>Reports</span></div>
+  <div class="grid">
+    <div class="card"><h3>Deterministic analyzers</h3><p>Permissions, access control, dynamic fees, oracles, external calls, withdrawals, accounting and return deltas, upgradeability, bytecode, source integrity.</p></div>
+    <div class="card"><h3>Real execution</h3><p>Foundry scenarios against the real PoolManager on a fork: withdrawal failure, oracle failure, fee escalation, admin and upgrade, accounting invariants, ordering.</p></div>
+    <div class="card"><h3>Exact LP math</h3><p>Integer ports of TickMath, SqrtPriceMath and LiquidityAmounts, checked against vectors generated by forge. Every figure is tagged on-chain, measured, hypothetical or unavailable.</p></div>
+    <div class="card"><h3>Honest by design</h3><p>Static findings are "inferred" and fork results are "observed". AI text that cites unknown evidence is rejected. HookLens never claims a hook is safe.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ RUN -->
+<section class="view" id="v-run">
+  <div class="eyebrow">Run it</div>
+  <h1>Start everything locally</h1>
+  <p class="lead">Needs Git, Foundry 1.9, Python 3.11+ with uv, and Node 22.11+. On Windows, run the <code>.sh</code> scripts in Git Bash. Use <b>three terminals</b>.</p>
+
+  <h2>One-time setup</h2>
+<pre><button class="copy">Copy</button>git clone https://github.com/vipinraj32/HookLens && cd HookLens
+git submodule update --init --recursive
+(cd contracts &amp;&amp; forge build)
+(cd backend &amp;&amp; uv sync)
+(cd frontend &amp;&amp; npm ci)
+cp .env.example .env     # optional: mainnet/Sepolia RPC, Etherscan key, Anthropic key</pre>
+
+  <h2>Terminal 1: local chain and fixture hooks</h2>
+<pre><button class="copy">Copy</button>scripts/dev-chain.sh
+# → Anvil on http://127.0.0.1:8545, fixture hook addresses in contracts/deployments/31337.json</pre>
+
+  <h2>Terminal 2: API</h2>
+<pre><button class="copy">Copy</button>cd backend
+uv run uvicorn app.main:app --port 8000
+# → health check: http://127.0.0.1:8000/v1/health   ·   worker: /v1/health/worker</pre>
+
+  <h2>Terminal 3: web UI</h2>
+<pre><button class="copy">Copy</button>cd frontend
+npm run dev
+# → open http://localhost:3000</pre>
+
+  <h2>CLI (no server needed)</h2>
+<pre><button class="copy">Copy</button>pip install "hooklens @ git+https://github.com/vipinraj32/HookLens#subdirectory=packages/hooklens"
+
+hooklens scan ./contracts --local --html report.html
+hooklens scan https://github.com/uniswapfoundation/v4-template --html template.html
+hooklens scan ./contracts --json r.json --sarif r.sarif --fail-on high</pre>
+
+  <div class="note"><b>Before the meeting:</b> start all three terminals 10 minutes early, scan the oracle fixture once so solc is cached, and pre-generate <code>report.html</code> and <code>template.html</code>. Cloning v4-template takes about 90 s, so don't do it live on conference Wi-Fi. Open the HTML files from disk.</div>
+
+  <h2>Pre-flight checklist</h2>
+  <ul class="check">
+    <li><label><input type="checkbox"> <code>/v1/health/worker</code> shows <code>forge.available: true</code> and an RPC configured for chain 31337</label></li>
+    <li><label><input type="checkbox"> http://localhost:3000 loads the landing page</label></li>
+    <li><label><input type="checkbox"> Oracle fixture address copied (<code>hook_oracle_gated</code> in <code>contracts/deployments/31337.json</code>)</label></li>
+    <li><label><input type="checkbox"> One scan and one Withdrawal-failure simulation already completed (fallback if anything breaks live)</label></li>
+    <li><label><input type="checkbox"> <code>report.html</code> (contracts) and <code>template.html</code> (v4-template) open in browser tabs</label></li>
+    <li><label><input type="checkbox"> Terminal font enlarged; notifications off</label></li>
+  </ul>
+</section>
+
+<!-- ============================================================ WHERE -->
+<section class="view" id="v-where">
+  <div class="eyebrow">Where to see what</div>
+  <h1>Every piece of information, and where it lives</h1>
+
+  <h2>Web app (http://localhost:3000)</h2>
+  <div class="tbl"><table>
+    <tr><th>Page</th><th>URL</th><th>What you see</th></tr>
+    <tr><td>Landing</td><td class="mono">/</td><td>Product tabs, the live <b>permission decoder</b> (paste any address and the callbacks light up), the checks, an interactive real example report, static vs. execution</td></tr>
+    <tr><td>Dashboard</td><td class="mono">/app</td><td>Your recent scans, simulations and reports (per-browser workspace)</td></tr>
+    <tr><td>Scanner</td><td class="mono">/app/scan</td><td>Choose a chain and paste a hook address. Live job progress streams in</td></tr>
+    <tr><td>Hook intelligence</td><td class="mono">/app/scans/&lt;id&gt;</td><td>Resolved identity (block, code hash, proxy, source status), decoded permission bits, pools, findings by severity with evidence and LP implications</td></tr>
+    <tr><td>Adversarial lab</td><td class="mono">/app/scans/&lt;id&gt;/lab</td><td>Choose scenarios and run them on a fork. Each step shows expected vs. observed, revert reasons, decoded call traces and a reproduction command</td></tr>
+    <tr><td>LP exposure</td><td class="mono">/app/lp</td><td>Model a position (range, capital) to get principal value, divergence vs. hold, and measured scenario effects. Every number is tagged</td></tr>
+    <tr><td>Evidence explorer</td><td class="mono">/app/evidence</td><td>Search all source excerpts, bytecode facts, RPC state and simulation steps behind findings</td></tr>
+    <tr><td>Reports</td><td class="mono">/app/reports/&lt;id&gt;</td><td>Versioned JSON (with content hash) and PDF download</td></tr>
+  </table></div>
+
+  <h2>CLI outputs</h2>
+  <div class="tbl"><table>
+    <tr><th>Output</th><th>Where</th><th>What's in it</th></tr>
+    <tr><td>Console</td><td>terminal</td><td>Contracts found (hook / candidate / mock …), findings by severity with file:line, gate result</td></tr>
+    <tr><td>HTML report</td><td class="mono">--html report.html</td><td>One offline file with severity filters, search, grouping by contract or rule, expandable findings with source excerpts, source navigation, compiler settings, and scope and limitations</td></tr>
+    <tr><td>JSON</td><td class="mono">--json r.json</td><td>Machine-readable, schema v1, stable finding IDs</td></tr>
+    <tr><td>SARIF</td><td class="mono">--sarif r.sarif</td><td>For GitHub Code Scanning: findings appear on the exact lines in PRs</td></tr>
+  </table></div>
+
+  <h2>GitHub (with the Action)</h2>
+  <div class="grid">
+    <div class="card"><h3>Actions → run → Summary</h3><p>Markdown summary: status, counts, highest-severity findings, gate result.</p></div>
+    <div class="card"><h3>Security → Code scanning</h3><p>Each finding as an alert on its file and line, tracked across commits by its stable fingerprint.</p></div>
+    <div class="card"><h3>Artifacts</h3><p><code>hooklens-reports</code> contains the HTML, JSON and SARIF files.</p></div>
+    <div class="card"><h3>Pull request</h3><p>Optionally, one comment that is updated on every push. A failed check means findings at or above <code>fail-on</code>.</p></div>
+  </div>
+
+  <h2>How to read a finding</h2>
+  <div class="tbl"><table>
+    <tr><th>Field</th><th>Example</th></tr>
+    <tr><td>Severity</td><td><span class="med">MEDIUM</span>: a deterministic rule-based label, not a risk score</td></tr>
+    <tr><td>Rule</td><td class="mono">HL.WDR.withdrawal_revert_conditions</td></tr>
+    <tr><td>Where</td><td class="mono">OracleGatedWithdrawalHook · src/fixtures/OracleGatedWithdrawalHook.sol:57 · beforeRemoveLiquidity</td></tr>
+    <tr><td>Description</td><td>The revert conditions reachable from <code>beforeRemoveLiquidity</code></td></tr>
+    <tr><td>LP impact</td><td>What it can mean for liquidity providers</td></tr>
+    <tr><td>Evidence</td><td>The exact source lines (or bytecode, RPC state, simulation step)</td></tr>
+    <tr><td>Basis</td><td><code>source-ast</code>, <code>bytecode</code>, <code>rpc-state</code>, <code>simulation</code>, <code>metadata</code></td></tr>
+  </table></div>
+</section>
+
+<!-- ============================================================ WORKFLOW -->
+<section class="view" id="v-workflow">
+  <div class="eyebrow">Full workflow</div>
+  <h1>End-to-end demo (about 12 minutes)</h1>
+  <p class="lead">Each step lists what to do, what appears on screen, and a line to say. The demo uses HookLens's own <b>deliberately flawed test fixtures</b> on a local Anvil chain. Say so up front.</p>
+  <p><span class="timer">Demo timer <b id="t">00:00</b> <button id="tb" type="button">Start</button></span></p>
+
+  <h2>Act 1: the LP's question (web app)</h2>
+  <ol class="steps">
+    <li><b>Open the landing page</b> at <code>localhost:3000</code> and scroll to <b>"Decode any hook address"</b>. Click the <i>Oracle-gated withdrawal</i> preset.
+      <span class="see">You'll see <code>beforeRemoveLiquidity</code> (bit 9) light up in amber: it can block withdrawals.</span>
+      <span class="say">"A v4 hook's address tells you which callbacks run. This one runs before every withdrawal. The bits tell you <i>that</i> it runs, not <i>what</i> it does. So we look inside."</span></li>
+    <li><b>Click "Scan a deployed hook"</b>, choose <b>Local Anvil</b>, paste the oracle hook address, and click Scan.
+      <span class="see">Live progress: resolve, pin block, read code, match source, discover pools, run analyzers.</span></li>
+    <li><b>Hook intelligence page.</b> Show the identity (block, code hash, source status), the permission bits, and the findings.
+      <span class="see">4 medium findings: the withdrawal can revert, it depends on an external oracle, it makes external calls, and privileged config influences the callback.</span>
+      <span class="say">"Every finding points at the exact source lines. This one says: if the oracle is stale or returns zero, LPs can't withdraw."</span></li>
+    <li><b>Open a finding and its evidence.</b> Show the excerpt, the LP implications, and the "inferred" label.
+      <span class="say">"This is inferred from code. Next, we prove it."</span></li>
+  </ol>
+
+  <h2>Act 2: prove it on a fork (Adversarial lab)</h2>
+  <ol class="steps" start="5">
+    <li><b>Open the Adversarial lab</b> and run <b>Withdrawal failure</b>.
+      <span class="see">Foundry forks the chain and deploys routers against the real PoolManager. It adds and removes liquidity, then repeats under each detected condition (stale oracle, zero price, oracle revert).</span></li>
+    <li><b>Show the steps and traces.</b> In a verified run on the oracle fixture, the scenario ended <span class="bad">unexpected_revert</span> with 4 LP expectations not met:
+      <span class="see">Adding liquidity, swaps, partial and full removal, and re-adding all <span class="ok">passed</span>. Removal was blocked under each oracle condition:
+        oracle call reverts → <code>mocked oracle revert</code>; price 0 → <code>InvalidOraclePrice(answer=0)</code>; price −1 → <code>InvalidOraclePrice(answer=-1)</code>; stale → <code>StaleOraclePrice(…, maxStaleness=3600)</code>.
+        Removal <span class="ok">recovered</span> after each condition was lifted. Every step shows expected vs. observed, the decoded call tree, and a <code>forge test</code> reproduction command.</span>
+      <span class="say">"That's no longer a static guess. It's an observed revert, at this block, with a command anyone can re-run."</span></li>
+    <li><b>LP exposure.</b> Enter a position and show principal, divergence vs. hold, and the scenario effect, each with its tag.
+      <span class="say">"We never blend measured and hypothetical numbers. If fee income wasn't measured, it says 'unavailable'."</span></li>
+    <li><b>Generate the report.</b> Download the JSON (with content hash) and the PDF.</li>
+  </ol>
+
+  <h2>Act 3: the developer's side (CLI and CI)</h2>
+  <ol class="steps" start="9">
+    <li><b>Terminal:</b> run <code>hooklens scan ./contracts --local --fail-on high</code>.
+      <span class="see">It finds 6 hook contracts and 29 findings (8 medium, 10 low, 11 informational), and the gate passes because nothing is high.</span>
+      <span class="say">"Same engine, no server, no keys. Point it at source and it finds the hooks itself: mocks, tests and interfaces are skipped, with reasons."</span></li>
+    <li><b>Open the pre-generated <code>report.html</code></b>: filter by severity, search "oracle", expand a finding, jump to the source.</li>
+    <li><b>Real-world repo:</b> open <code>template.html</code> from <code>hooklens scan https://github.com/uniswapfoundation/v4-template</code>.
+      <span class="see"><code>Counter</code> is detected as a hook with only an informational finding (its enabled callbacks).</span>
+      <span class="say">"On a clean template it stays quiet. We fixed a false positive on <code>onlyPoolManager</code> exactly because we tested on this repo."</span></li>
+    <li><b>Show the Action YAML</b> (landing page → Products → GitHub Action). Explain SARIF in Code Scanning, the PR comment, and fork safety.
+      <span class="say">"Every hook PR can be checked against v4-specific rules, with alerts on the exact line."</span></li>
+  </ol>
+
+  <h2>Close</h2>
+  <ol class="steps" start="13">
+    <li><b>"What HookLens is not"</b> slide or section: not an audit, not a forecast, no keys.
+      <span class="say">"We'd rather be useful and honest than impressive. A clean report never means 'safe'."</span></li>
+  </ol>
+
+  <h2>If something breaks live</h2>
+  <details><summary>Scan stuck or API down</summary><div>Check <code>http://127.0.0.1:8000/v1/health/worker</code>. Fall back to the scan you completed before the meeting (Dashboard → recent scans).</div></details>
+  <details><summary>Simulation fails with infra_error</summary><div>Usually Anvil restarted, so the fixture addresses changed. Re-run <code>scripts/dev-chain.sh</code>, then re-scan. Or show the pre-run simulation.</div></details>
+  <details><summary>Network is slow</summary><div>Skip live GitHub cloning; open <code>template.html</code> from disk. Everything else runs locally.</div></details>
+</section>
+
+<!-- ============================================================ PITCH -->
+<section class="view" id="v-pitch">
+  <div class="eyebrow">Pitch script</div>
+  <h1>For the Uniswap team (about 5 minutes, then demo)</h1>
+
+  <ol class="steps">
+    <li><b>Hook (30 s)</b>
+      <span class="say">"v4 made pools programmable. That's the point, and it's also the new risk surface: a hook sits in the path of every swap and every withdrawal. Today an LP can't tell whether a hooked pool can lock their funds, change their fee, or take a cut of a swap without reading Solidity."</span></li>
+    <li><b>What we built (60 s)</b>
+      <span class="say">"HookLens is an open-source tool that answers one question: what is my liquidity really exposed to? It decodes the hook's permissions, runs deterministic v4-specific analyzers over the code, and then executes adversarial Foundry scenarios against the real PoolManager on a fork. Every claim links to evidence: source lines, bytecode, on-chain state, or a simulation step."</span></li>
+    <li><b>Two audiences, one engine (45 s)</b>
+      <span class="say">"For LPs and integrators there's a web app: paste an address. For hook developers there's a CLI and a GitHub Action that run the same engine on source code in CI, with SARIF in Code Scanning. The finding IDs are identical in both, so a developer's CI and an LP's due diligence speak the same language."</span></li>
+    <li><b>Why trust it (45 s)</b>
+      <span class="say">"It's built to be honest. Static results are labelled inferred, fork results observed. LP numbers are tagged measured or hypothetical and never blended. The AI layer is optional, and its output is rejected if it cites evidence that doesn't exist or invents numbers. And we never call a hook safe."</span></li>
+    <li><b>Demo (8–12 min)</b>: follow the <a href="#workflow" data-go="workflow">Full workflow</a> tab.</li>
+    <li><b>The ask (45 s)</b>
+      <span class="say">"Three things would make the biggest difference. First, feedback from your team on the rule set, especially return deltas and dynamic fees. Second, a path to surface this where LPs make decisions, for example as a signal next to hooked pools. Third, introductions to hook teams who'd run the Action in CI. It's open source, so you can try it today."</span></li>
+  </ol>
+
+  <h2>Why it matters for Uniswap</h2>
+  <div class="grid">
+    <div class="card"><h3>Safer hook adoption</h3><p>LPs are more willing to provide liquidity to hooked pools when the risks are explained with evidence.</p></div>
+    <div class="card"><h3>Better hooks, earlier</h3><p>Hook developers catch withdrawal blockers and unbounded fees in the PR, before deployment.</p></div>
+    <div class="card"><h3>Shared vocabulary</h3><p>Stable rule IDs (<code>HL.WDR…</code>, <code>HL.FEE…</code>) give LPs, devs and reviewers one language for hook risk.</p></div>
+    <div class="card"><h3>Open and reproducible</h3><p>Every simulation ships a reproduction command; every report carries its block, code hash and limitations.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ Q&A -->
+<section class="view" id="v-qa">
+  <div class="eyebrow">Q&amp;A prep</div>
+  <h1>Likely questions, honest answers</h1>
+  <details><summary>Is this an audit replacement?</summary><div>No. It's a deterministic first pass and an execution harness. It finds and demonstrates specific v4 risk patterns with evidence. It doesn't prove the absence of bugs, and it never says a hook is safe.</div></details>
+  <details><summary>How accurate is it? False positives?</summary><div>The rules are heuristic and will have false positives and negatives. We test them against fixture hooks that include a deliberate false-positive case, and against uniswapfoundation/v4-template (where we found and fixed an <code>onlyPoolManager</code> false positive). We don't have a benchmark across many production hooks yet; that's a good next step, and help from your team would make a difference.</div></details>
+  <details><summary>Which chains?</summary><div>Ethereum mainnet, Sepolia and local Anvil. Adding a chain is server configuration: the PoolManager address and an RPC endpoint.</div></details>
+  <details><summary>What if the source isn't verified?</summary><div>Permissions and bytecode analysis still run (selectors, DELEGATECALL, admin selectors, proxies). Source-level rules are reported as not applicable rather than guessed.</div></details>
+  <details><summary>Does the simulation touch mainnet?</summary><div>No. Everything runs on a local fork. Privileged actions are impersonated inside the fork only. No keys or wallets are needed.</div></details>
+  <details><summary>What does the AI do, and can it hallucinate?</summary><div>It writes plain-language explanations from the deterministic evidence. A validator rejects output that cites unknown evidence, lines outside the evidence, runs that didn't happen, numbers not in the data, severity changes, or claims of exploitability or safety. It's optional; everything works without it.</div></details>
+  <details><summary>Is it production-ready?</summary><div>The engine, CLI and local stack are tested (backend, CLI package, forge, frontend unit and Playwright e2e). Not yet done: Docker images haven't been built and run, GitHub Actions workflows haven't run on GitHub, no license has been chosen yet, and the PyPI name "hooklens" belongs to another project, so we install from Git.</div></details>
+  <details><summary>How is it different from Slither or other linters?</summary><div>It's v4-specific: it understands hook permissions and address bits, return deltas, the PoolManager callback lifecycle and LP impact. And it executes scenarios on a fork instead of only reading code.</div></details>
+</section>
+
+</main>
+
+<script>
+(() => {
+  const views = ["overview", "run", "where", "workflow", "pitch", "qa"];
+  const show = (v) => {
+    if (!views.includes(v)) v = "overview";
+    for (const id of views) {
+      document.getElementById("v-" + id).classList.toggle("on", id === v);
+    }
+    for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.v === v));
+    window.scrollTo(0, 0);
+  };
+  for (const t of document.querySelectorAll(".tab")) t.addEventListener("click", () => { location.hash = t.dataset.v; });
+  for (const a of document.querySelectorAll("[data-go]")) a.addEventListener("click", (e) => { e.preventDefault(); location.hash = a.dataset.go; });
+  window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+  show(location.hash.slice(1));
+
+  for (const b of document.querySelectorAll(".copy")) {
+    b.addEventListener("click", async () => {
+      const text = b.parentElement.innerText.replace(/^Copy(ied)?\n?/, "").trim();
+      try { await navigator.clipboard.writeText(text); b.textContent = "Copied"; }
+      catch { b.textContent = "Select & copy"; }
+      setTimeout(() => (b.textContent = "Copy"), 1500);
+    });
+  }
+
+  let start = 0, timer = 0;
+  const out = document.getElementById("t"), btn = document.getElementById("tb");
+  btn.addEventListener("click", () => {
+    if (timer) { clearInterval(timer); timer = 0; btn.textContent = "Start"; return; }
+    start = Date.now() - (start ? 0 : 0);
+    const t0 = Date.now();
+    timer = setInterval(() => {
+      const s = Math.floor((Date.now() - t0) / 1000);
+      out.textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+      out.className = s > 720 ? "bad" : s > 600 ? "med" : "";
+    }, 500);
+    btn.textContent = "Stop";
+  });
+})();
+</script>
+</body>
+</html>

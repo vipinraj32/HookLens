@@ -119,3 +119,47 @@ body {
     }
   }
 }
+
+/* ---------- Landing page motion (content is fully visible without it) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes landing-line-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  .terminal-line {
+    animation: landing-line-in 0.35s ease-out both;
+    animation-delay: calc(var(--i, 0) * 110ms + 250ms);
+  }
+
+  @keyframes landing-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  .landing-fade[data-state="active"] {
+    animation: landing-fade-in 0.3s ease-out;
+  }
+
+  @supports (animation-timeline: view()) {
+    @keyframes landing-reveal {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+    }
+    .landing-reveal {
+      animation: landing-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
+
+.landing-glow {
+  background:
+    radial-gradient(60rem 30rem at 15% -10%, color-mix(in oklch, var(--color-accent) 16%, transparent), transparent 70%),
+    radial-gradient(40rem 24rem at 95% 10%, color-mix(in oklch, var(--color-sev-low) 10%, transparent), transparent 70%);
+}
