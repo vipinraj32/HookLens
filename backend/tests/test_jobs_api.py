@@ -260,3 +260,53 @@ def test_workspace_report_list_is_scoped_and_filterable(client: Any) -> None:
     assert item["hook_address"] == "0x" + "ab" * 20 and item["chain_id"] == 31337
     assert "content" not in item  # list rows never carry the full report
     assert client.get("/v1/reports", headers=hdr, params={"chain_id": 1}).json()["total"] == 0
+
+
+def test_managed_postgres_urls_use_the_psycopg_driver(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.config import Settings
+
+    for given in ("postgres://u:p@db:5432/hl", "postgresql://u:p@db:5432/hl", "postgresql+psycopg://u:p@db:5432/hl"):
+        monkeypatch.setenv("HOOKLENS_DATABASE_URL", given)
+        assert Settings().database_url == "postgresql+psycopg://u:p@db:5432/hl"
+
+
+def test_report_pdf_is_rerendered_when_missing_from_this_disk(
+    client: Any, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A worker on another machine rendered the PDF; the API re-renders it from the stored content."""
+    from app.api.security import verify_token
+    from app.config import get_settings
+    from app.db.models import Report, Scan
+    from app.reports import pdf
+
+    monkeypatch.setattr(get_settings(), "reports_dir", tmp_path)
+    calls: list[str] = []
+
+    def fake_render(content: dict[str, Any], digest: str, path: Any) -> None:
+        calls.append(digest)
+        path.write_bytes(b"%PDF-1.4 test")
+
+    monkeypatch.setattr(pdf, "render_pdf", fake_render)
+    token = client.get("/v1/reports").headers["X-HookLens-Workspace"]
+    ws = verify_token(token)
+    assert ws
+    with session_scope() as db:
+        scan = Scan(workspace_id=ws, chain_id=31337, hook_address="0x" + "ef" * 20, status="completed")
+        db.add(scan)
+        db.flush()
+        rep = Report(
+            workspace_id=ws,
+            scan_id=scan.id,
+            report_version="1",
+            content={"identity": {"hook_address": "0x" + "ef" * 20}},
+            content_hash="sha256:" + "2" * 64,
+            status="ready",
+        )
+        db.add(rep)
+        db.flush()
+        rep.pdf_path = str(tmp_path / f"{rep.id}.pdf")
+        rid = rep.id
+
+    res = client.get(f"/v1/reports/{rid}/pdf", headers={"X-HookLens-Workspace": token})
+    assert res.status_code == 200 and res.content.startswith(b"%PDF")
+    assert calls == ["sha256:" + "2" * 64]

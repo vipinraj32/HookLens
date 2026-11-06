@@ -3,7 +3,9 @@ import type { NextConfig } from "next";
 // The browser talks to the API through this same-origin rewrite, so the anonymous
 // workspace cookie (hl_ws) is first-party and no CORS credentials are needed.
 // HOOKLENS_API_URL is read on the server only; it is never sent to the browser.
-const apiUrl = (process.env.HOOKLENS_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+// A bare host:port (as Render's fromService hostport provides) is treated as http on the private network.
+const rawApiUrl = (process.env.HOOKLENS_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+const apiUrl = /^https?:\/\//.test(rawApiUrl) ? rawApiUrl : `http://${rawApiUrl}`;
 
 const nextConfig: NextConfig = {
   cacheComponents: true,

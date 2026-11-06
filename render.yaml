@@ -1,0 +1,188 @@
+# HookLens on Render: Blueprint (Infrastructure as Code).
+#
+# Render dashboard -> New -> Blueprint -> pick this repository. Render reads this file, asks for
+# the `sync: false` secrets (RPC URLs, Etherscan key, Anthropic key), and creates everything below.
+# Mirrors docker-compose.yml: one public web service (Next.js), a private API, a Celery worker
+# (default queue + beat), a Foundry simulation worker (sim queue), Postgres and Key Value (Redis).
+# See docs/deployment.md#render for plans, costs and limitations.
+#
+# Only the frontend is public. The browser calls same-origin /api/v1/*, and the Next.js server
+# proxies that to the private API over Render's private network.
+
+envVarGroups:
+  - name: hooklens-backend
+    envVars:
+      - key: HOOKLENS_ENVIRONMENT
+        value: production
+      - key: HOOKLENS_JOB_BACKEND
+        value: celery
+      - key: HOOKLENS_AUTO_MIGRATE
+        value: "false" # the API's preDeployCommand runs the migrations
+      - key: HOOKLENS_ENABLE_LOCAL_CHAIN
+        value: "false" # no Anvil dev chain on Render
+      - key: HOOKLENS_AI_MODEL
+        value: claude-opus-5-5
+      - key: HOOKLENS_LOG_LEVEL
+        value: INFO
+      - key: FOUNDRY_FFI
+        value: "false"
+      # Shared by the API and the workers (HMAC for anonymous workspace tokens); 256-bit random.
+      - key: HOOKLENS_WORKSPACE_SECRET
+        generateValue: true
+
+services:
+  # ------------------------------------------------------------------ public web UI
+  - type: web
+    name: hooklens-web
+    runtime: docker
+    region: oregon
+    plan: 0.5c-512mb
+    branch: main
+    dockerContext: ./frontend
+    dockerfilePath: ./docker/frontend.Dockerfile
+    healthCheckPath: /
+    buildFilter:
+      paths:
+        - frontend/**
+        - docker/frontend.Dockerfile
+    envVars:
+      - key: PORT
+        value: "3000"
+      # Build arg as well as runtime env: Next.js bakes the rewrite target in at build time.
+      # Resolves to "hooklens-api:8000" (private network); next.config.ts adds http://.
+      - key: HOOKLENS_API_URL
+        fromService:
+          type: pserv
+          name: hooklens-api
+          property: hostport
+
+  # ------------------------------------------------------------------ private API
+  # The backend Dockerfile's last stage is `sim` (the app image plus forge/anvil/cast), so every
+  # backend service builds that stage and picks its process with dockerCommand.
+  - type: pserv
+    name: hooklens-api
+    runtime: docker
+    region: oregon
+    plan: 0.5c-512mb
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./docker/backend.Dockerfile
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+    preDeployCommand: alembic upgrade head
+    buildFilter:
+      paths:
+        - backend/**
+        - packages/hooklens/**
+        - contracts/**
+        - docker/backend.Dockerfile
+    envVars:
+      - key: PORT
+        value: "8000"
+      # Trust X-Forwarded-For from the Next.js proxy (only reachable over the private network).
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      - fromGroup: hooklens-backend
+      - key: HOOKLENS_DATABASE_URL
+        fromDatabase:
+          name: hooklens-db
+          property: connectionString
+      - key: HOOKLENS_REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hooklens-redis
+          property: connectionString
+      - key: HOOKLENS_MAINNET_RPC_URL
+        sync: false
+      - key: HOOKLENS_SEPOLIA_RPC_URL
+        sync: false
+      - key: HOOKLENS_ETHERSCAN_API_KEY
+        sync: false
+      - key: HOOKLENS_ANTHROPIC_API_KEY
+        sync: false
+
+  # ------------------------------------------------------------------ default worker + beat
+  # Scans, AI explanations, report PDFs; -B also runs the stale-job reaper schedule (keep 1 instance).
+  - type: worker
+    name: hooklens-worker
+    runtime: docker
+    region: oregon
+    plan: 1c-2g
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./docker/backend.Dockerfile
+    dockerCommand: celery -A app.worker.celery_app worker -Q default --concurrency=2 -B -s /tmp/celerybeat-schedule --loglevel=INFO
+    buildFilter:
+      paths:
+        - backend/**
+        - packages/hooklens/**
+        - contracts/**
+        - docker/backend.Dockerfile
+    envVars:
+      - fromGroup: hooklens-backend
+      - key: HOOKLENS_DATABASE_URL
+        fromDatabase:
+          name: hooklens-db
+          property: connectionString
+      - key: HOOKLENS_REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hooklens-redis
+          property: connectionString
+      - key: HOOKLENS_MAINNET_RPC_URL
+        sync: false
+      - key: HOOKLENS_SEPOLIA_RPC_URL
+        sync: false
+      - key: HOOKLENS_ETHERSCAN_API_KEY
+        sync: false
+      - key: HOOKLENS_ANTHROPIC_API_KEY
+        sync: false
+
+  # ------------------------------------------------------------------ Foundry simulation worker
+  # Forks the configured chain with forge; one simulation at a time.
+  - type: worker
+    name: hooklens-sim
+    runtime: docker
+    region: oregon
+    plan: 2c-4g
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./docker/backend.Dockerfile
+    dockerCommand: celery -A app.worker.celery_app worker -Q sim --concurrency=1 --loglevel=INFO
+    buildFilter:
+      paths:
+        - backend/**
+        - packages/hooklens/**
+        - contracts/**
+        - docker/backend.Dockerfile
+    envVars:
+      - fromGroup: hooklens-backend
+      - key: HOOKLENS_DATABASE_URL
+        fromDatabase:
+          name: hooklens-db
+          property: connectionString
+      - key: HOOKLENS_REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hooklens-redis
+          property: connectionString
+      - key: HOOKLENS_MAINNET_RPC_URL
+        sync: false
+      - key: HOOKLENS_SEPOLIA_RPC_URL
+        sync: false
+
+  # ------------------------------------------------------------------ Celery broker
+  - type: keyvalue
+    name: hooklens-redis
+    region: oregon
+    plan: 256mb
+    maxmemoryPolicy: noeviction # a broker must not drop queued tasks
+    ipAllowList: [] # private network only
+
+databases:
+  - name: hooklens-db
+    databaseName: hooklens
+    user: hooklens
+    region: oregon
+    plan: 0.1c-256mb
+    postgresMajorVersion: "16"
+    ipAllowList: [] # private network only

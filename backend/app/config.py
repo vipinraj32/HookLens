@@ -83,6 +83,16 @@ class Settings(BaseSettings):
         # `KEY=` in a copied .env.example means "not configured", not an empty secret.
         return None if isinstance(v, str) and not v.strip() else v
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _psycopg_driver(cls, v: object) -> object:
+        # Managed Postgres (e.g. Render) hands out postgres:// or postgresql:// URLs; use the psycopg 3 driver.
+        if isinstance(v, str):
+            for prefix in ("postgres://", "postgresql://"):
+                if v.startswith(prefix):
+                    return "postgresql+psycopg://" + v[len(prefix) :]
+        return v
+
     @field_validator("workspace_secret", mode="before")
     @classmethod
     def _blank_secret_is_default(cls, v: object) -> object:

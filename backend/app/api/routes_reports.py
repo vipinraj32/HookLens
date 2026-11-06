@@ -105,8 +105,18 @@ def get_report_pdf(report_id: str, db: Session = Depends(get_db), ws: str = Depe
     r = _owned_report(db, ws, report_id)
     if not r.pdf_path:
         raise AppError("pdf_not_ready", f"The PDF is not available (status: {r.status}).", status_code=409)
+    reports_dir = Path(get_settings().reports_dir).resolve()
     path = Path(r.pdf_path).resolve()
-    if path.parent != Path(get_settings().reports_dir).resolve() or not path.exists():
+    if path.parent != reports_dir:
+        raise NotFound("report file", report_id)
+    if not path.exists() and r.status == "ready":
+        # The worker that rendered the PDF may not share this disk (e.g. separate services on a
+        # PaaS); re-render it here from the stored, hashed report content.
+        from app.reports.pdf import render_pdf
+
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        render_pdf(dict(r.content), r.content_hash, path)
+    if not path.exists():
         raise NotFound("report file", report_id)
     return FileResponse(
         path,

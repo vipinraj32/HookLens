@@ -53,3 +53,54 @@ The frontend proxies to `http://api:8000`. That value is baked in at build time 
 - **Upgrades.** `migrate` runs before `api` and the workers start.
 - **Egress.** Restrict `sim-worker` egress to the RPC host at the network layer. See the
   [threat model](threat-model.md).
+
+## Render
+
+[`render.yaml`](../render.yaml) is a Render Blueprint for the same topology. It has **not** been
+deployed from this repository yet, so treat the first Blueprint sync as a test and check the
+build logs.
+
+| Render resource | Type | Plan in the Blueprint | Compose equivalent |
+|---|---|---|---|
+| `hooklens-web` | Web service (public) | `0.5c-512mb` | `frontend` |
+| `hooklens-api` | Private service, `preDeployCommand: alembic upgrade head` | `0.5c-512mb` | `api` + `migrate` |
+| `hooklens-worker` | Background worker, Celery `-Q default -B` | `1c-2g` | `worker` + `beat` |
+| `hooklens-sim` | Background worker, Celery `-Q sim`, concurrency 1 | `2c-4g` | `sim-worker` |
+| `hooklens-redis` | Key Value, `noeviction`, private only | `256mb` | `redis` |
+| `hooklens-db` | Postgres 16, private only | `0.1c-256mb` | `postgres` |
+
+### Steps
+
+1. Push the repository to GitHub (or GitLab) with the submodules committed as submodule
+   references. The backend build fails early with a clear message if `contracts/lib` was not
+   checked out.
+2. In the Render dashboard, choose **New → Blueprint**, connect the repository and select `main`.
+3. Render asks for the `sync: false` values for each backend service. Enter them in the dashboard;
+   never commit them:
+   - `HOOKLENS_MAINNET_RPC_URL` / `HOOKLENS_SEPOLIA_RPC_URL` (API, worker and sim worker). Leave
+     a chain blank to disable it.
+   - `HOOKLENS_ETHERSCAN_API_KEY` and `HOOKLENS_ANTHROPIC_API_KEY` (API and worker), both
+     optional.
+4. Apply the Blueprint. Open the `hooklens-web` URL, then check `/api/v1/health/worker`. It should
+   report Celery reachable, forge available, and the chains you configured.
+
+### Notes
+
+- **Cost.** Private services and background workers have no free plan on Render, and the
+  pre-deploy command needs a paid plan, so this Blueprint is a paid deployment. Check
+  Render's pricing before applying, and lower the plans if you need to. The sim worker needs
+  enough memory for `forge` on a mainnet fork.
+- **Private API.** Only `hooklens-web` is public. Its `HOOKLENS_API_URL` comes from the
+  API's private `host:port`. `next.config.ts` adds `http://`, and the value is used at build
+  time (Render passes environment variables as Docker build args).
+- **One image, three processes.** The backend Dockerfile's final stage is `sim`, so the API and
+  both workers build it and select their process with `dockerCommand`.
+- **No shared disk.** Report PDFs are rendered by the worker. If the API cannot find the file on
+  its own disk, it re-renders the PDF from the stored, hashed report content. Simulation run
+  outputs are read by the sim worker that wrote them.
+- **Database URL.** Render's `postgresql://` connection string is rewritten to the
+  `postgresql+psycopg://` driver automatically.
+- **No dev chain.** `HOOKLENS_ENABLE_LOCAL_CHAIN=false`. The Anvil fixtures are a local-only
+  profile.
+- **Egress.** Render does not restrict outbound traffic by hostname. The threat-model note
+  about `sim-worker` egress applies.
