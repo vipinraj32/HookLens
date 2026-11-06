@@ -13,11 +13,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.analyzers.core import Collector, ConfidenceBasis, FindingStatus, Severity
 from app.simulation.catalog import ScenarioDef
 from app.simulation.decode import Registry, decode_revert
 from app.simulation.forge_runner import ForgeRun
 from app.simulation.traces import TraceParseError, first_revert_chain, parse_test_result
+from hooklens.analyzers.core import Collector, ConfidenceBasis, FindingStatus, Severity
 
 CONDITION_TEXT = {
     "oracle_revert": "the oracle call reverts",
@@ -218,7 +218,7 @@ def _rule(scenario: str, step: dict[str, Any]) -> tuple[str, Severity, str, str,
             f"accounting_violation_{name}",
             Severity.HIGH,
             f"Accounting check failed: {name}",
-            "Balance changes did not match the PoolManager deltas or tokens were not conserved.",
+            "An account's balance changed by something other than the BalanceDelta the PoolManager returned.",
             "LP or trader balances may change by more than the reported deltas.",
         )
     if phase in ("baseline", "repeat", "liquidity_ordering", "setup", "liquidity"):

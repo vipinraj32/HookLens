@@ -152,6 +152,8 @@ contract SwapFeeDeltaFixtureTest is FixtureScenarioTest {
         _assertStep("lp1_remove_all", true);
         (bool found,) = _stepResult("invariant_exact_in_0_for_1");
         assertFalse(found, "custom-delta hook must not trip the conservation invariant");
+        (found,) = _stepResult("outflow_exact_in_0_for_1");
+        assertFalse(found, "the fixture keeps its fee inside the tracked set");
     }
 }
 
@@ -173,5 +175,7 @@ contract NoOpFixtureTest is FixtureScenarioTest {
         _runAccounting();
         (bool found,) = _stepResult("invariant_lp1_remove_all");
         assertFalse(found, "baseline hook accounting must be conserved");
+        (found,) = _stepResult("outflow_exact_in_0_for_1");
+        assertFalse(found, "no value leaves the tracked set for a no-op hook");
     }
 }

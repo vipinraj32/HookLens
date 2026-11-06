@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# HookLens backend images. Build context: repository root (needs backend/ and contracts/).
+# HookLens backend images. Build context: repository root (needs backend/, packages/hooklens/ and contracts/).
 #   docker build -f docker/backend.Dockerfile --target app .   # API + default Celery worker
 #   docker build -f docker/backend.Dockerfile --target sim .   # Foundry simulation worker
 #
@@ -35,6 +35,8 @@ RUN test -f lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol \
 FROM python:${PYTHON_VERSION}-slim AS pydeps
 COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+# The analysis engine is the `hooklens` package (a path dependency of the backend, shared with the CLI).
+COPY packages/hooklens/ /app/packages/hooklens/
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
@@ -47,6 +49,7 @@ FROM python:${PYTHON_VERSION}-slim AS app
 RUN groupadd --system --gid 10001 hooklens \
  && useradd --system --uid 10001 --gid hooklens --home-dir /app --shell /usr/sbin/nologin hooklens
 WORKDIR /app/backend
+COPY --from=pydeps --chown=hooklens:hooklens /app/packages /app/packages
 COPY --from=pydeps --chown=hooklens:hooklens /app/backend /app/backend
 # Artifacts are used to decode reverts and to match Anvil fixture bytecode to source.
 COPY --from=contracts --chown=hooklens:hooklens /build/contracts /app/contracts

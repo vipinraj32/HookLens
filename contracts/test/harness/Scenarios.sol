@@ -83,17 +83,33 @@ abstract contract Scenarios is HookLensScenarioBase {
         if (_abortIfInfraError()) return;
 
         OpResult memory r = _add(lp, liquidity);
-        _record(Step("seed_liquidity", "setup", "baseline", "success", false, "LP adds liquidity in the default range"), r);
+        _record(
+            Step("seed_liquidity", "setup", "baseline", "success", false, "LP adds liquidity in the default range"), r
+        );
 
         (OpResult memory s1, uint256 fee1) = _swapWithFee(trader, true, -int256(swapAmount));
         _recordWithMetrics(
-            Step("baseline_swap_0_for_1", "baseline", "baseline", "success", false, "Exact-input swap; fee from Swap event"),
+            Step(
+                "baseline_swap_0_for_1",
+                "baseline",
+                "baseline",
+                "success",
+                false,
+                "Exact-input swap; fee from Swap event"
+            ),
             s1,
             _metricU("lp_fee_pips", fee1)
         );
         (OpResult memory s2, uint256 fee2) = _swapWithFee(trader, false, -int256(swapAmount1));
         _recordWithMetrics(
-            Step("baseline_swap_1_for_0", "baseline", "baseline", "success", false, "Exact-input swap; fee from Swap event"),
+            Step(
+                "baseline_swap_1_for_0",
+                "baseline",
+                "baseline",
+                "success",
+                false,
+                "Exact-input swap; fee from Swap event"
+            ),
             s2,
             _metricU("lp_fee_pips", fee2)
         );
@@ -174,7 +190,9 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         uint128 posLiq = _positionLiquidity(lp);
         r = _remove(lp, posLiq / 2);
-        _record(Step("partial_remove_50pct", "baseline", "baseline", "success", false, "Remove half of the position"), r);
+        _record(
+            Step("partial_remove_50pct", "baseline", "baseline", "success", false, "Remove half of the position"), r
+        );
         posLiq = _positionLiquidity(lp);
         r = _remove(lp, posLiq);
         _record(Step("full_remove", "baseline", "baseline", "success", false, "Remove the remaining position"), r);
@@ -193,7 +211,17 @@ abstract contract Scenarios is HookLensScenarioBase {
     function _withdrawUnderCondition(WithdrawalConfig memory cfg, string memory condition) internal {
         uint256 snap = vm.snapshotState();
         OpResult memory r = _add(lp, liquidity);
-        _record(Step(string.concat("add_before_", condition), "condition_setup", condition, "success", false, "Fresh position"), r);
+        _record(
+            Step(
+                string.concat("add_before_", condition),
+                "condition_setup",
+                condition,
+                "success",
+                false,
+                "Fresh position"
+            ),
+            r
+        );
 
         (bool applied, bool privileged, string memory why) = _applyCondition(cfg, condition);
         if (!applied) {
@@ -253,7 +281,11 @@ abstract contract Scenarios is HookLensScenarioBase {
             int256 answer = c == keccak256("oracle_zero") ? int256(0) : int256(-1);
             if (o.kind == 2 && answer < 0) return (false, false, "uint oracle cannot report negative values");
             vm.mockCall(o.oracle, abi.encodePacked(o.selector), _oracleReturn(o.kind, answer, vm.getBlockTimestamp()));
-            return (true, false, c == keccak256("oracle_zero") ? "Oracle reports zero (mocked)" : "Oracle reports negative (mocked)");
+            return (
+                true,
+                false,
+                c == keccak256("oracle_zero") ? "Oracle reports zero (mocked)" : "Oracle reports negative (mocked)"
+            );
         }
         if (c == keccak256("oracle_stale")) {
             if (o.kind == 0) return (false, false, "no oracle dependency configured");
@@ -285,7 +317,11 @@ abstract contract Scenarios is HookLensScenarioBase {
             (bool ok, bytes memory ret) = cfg.oracle.oracle.staticcall(abi.encodePacked(cfg.oracle.selector));
             if (ok && cfg.oracle.kind == 1 && ret.length >= 160) {
                 (, int256 answer,,,) = abi.decode(ret, (uint80, int256, uint256, uint256, uint80));
-                vm.mockCall(cfg.oracle.oracle, abi.encodePacked(cfg.oracle.selector), _oracleReturn(1, answer, vm.getBlockTimestamp()));
+                vm.mockCall(
+                    cfg.oracle.oracle,
+                    abi.encodePacked(cfg.oracle.selector),
+                    _oracleReturn(1, answer, vm.getBlockTimestamp())
+                );
             }
         }
         // Pause recovery requires a privileged unpause and is intentionally not attempted:
@@ -304,7 +340,14 @@ abstract contract Scenarios is HookLensScenarioBase {
         if (_abortIfInfraError()) return;
         if (o.kind == 0) {
             _recordRaw(
-                Step("no_oracle_dependency", "setup", "none", "observe", false, "No oracle dependency was detected or configured"),
+                Step(
+                    "no_oracle_dependency",
+                    "setup",
+                    "none",
+                    "observe",
+                    false,
+                    "No oracle dependency was detected or configured"
+                ),
                 false,
                 "",
                 0,
@@ -323,16 +366,61 @@ abstract contract Scenarios is HookLensScenarioBase {
             uint256 snap = vm.snapshotState();
             bool applied = _applyOracleCondition(o, conds[i]);
             if (!applied) {
-                _recordRaw(Step(string.concat("condition_", conds[i]), "setup", conds[i], "observe", false, "Not applicable to this oracle shape"), false, "", 0, 0, 0, "");
+                _recordRaw(
+                    Step(
+                        string.concat("condition_", conds[i]),
+                        "setup",
+                        conds[i],
+                        "observe",
+                        false,
+                        "Not applicable to this oracle shape"
+                    ),
+                    false,
+                    "",
+                    0,
+                    0,
+                    0,
+                    ""
+                );
                 vm.revertToState(snap);
                 continue;
             }
             r = _swapExactIn(trader, true, swapAmount);
-            _record(Step(string.concat("swap_under_", conds[i]), "adversarial", conds[i], "observe", false, "Swap while oracle condition holds"), r);
+            _record(
+                Step(
+                    string.concat("swap_under_", conds[i]),
+                    "adversarial",
+                    conds[i],
+                    "observe",
+                    false,
+                    "Swap while oracle condition holds"
+                ),
+                r
+            );
             r = _add(lp2, liquidity);
-            _record(Step(string.concat("add_under_", conds[i]), "adversarial", conds[i], "observe", false, "Add while oracle condition holds"), r);
+            _record(
+                Step(
+                    string.concat("add_under_", conds[i]),
+                    "adversarial",
+                    conds[i],
+                    "observe",
+                    false,
+                    "Add while oracle condition holds"
+                ),
+                r
+            );
             r = _remove(lp, _positionLiquidity(lp));
-            _record(Step(string.concat("remove_under_", conds[i]), "adversarial", conds[i], "success", false, "LP removal while oracle condition holds"), r);
+            _record(
+                Step(
+                    string.concat("remove_under_", conds[i]),
+                    "adversarial",
+                    conds[i],
+                    "success",
+                    false,
+                    "LP removal while oracle condition holds"
+                ),
+                r
+            );
             vm.clearMockedCalls();
             vm.revertToState(snap);
         }
@@ -341,14 +429,34 @@ abstract contract Scenarios is HookLensScenarioBase {
         uint256 snap2 = vm.snapshotState();
         vm.warp(vm.getBlockTimestamp() + o.staleSeconds);
         r = _remove(lp, _positionLiquidity(lp) / 2);
-        _record(Step("ordering_remove_before_update", "ordering", "oracle_stale", "observe", false, "Removal before the oracle is refreshed"), r);
+        _record(
+            Step(
+                "ordering_remove_before_update",
+                "ordering",
+                "oracle_stale",
+                "observe",
+                false,
+                "Removal before the oracle is refreshed"
+            ),
+            r
+        );
         (bool ok, bytes memory ret) = o.oracle.staticcall(abi.encodePacked(o.selector));
         if (ok && ret.length >= 32) {
             int256 answer = o.kind == 2 ? int256(abi.decode(ret, (uint256))) : _chainlinkAnswer(ret);
             vm.mockCall(o.oracle, abi.encodePacked(o.selector), _oracleReturn(o.kind, answer, vm.getBlockTimestamp()));
         }
         r = _remove(lp, _positionLiquidity(lp) / 2);
-        _record(Step("ordering_remove_after_update", "ordering", "oracle_refreshed", "success", false, "Removal after the oracle is refreshed"), r);
+        _record(
+            Step(
+                "ordering_remove_after_update",
+                "ordering",
+                "oracle_refreshed",
+                "success",
+                false,
+                "Removal after the oracle is refreshed"
+            ),
+            r
+        );
         vm.clearMockedCalls();
         vm.revertToState(snap2);
         _finish();
@@ -382,7 +490,9 @@ abstract contract Scenarios is HookLensScenarioBase {
             (bool ok, bytes memory ret) = o.oracle.staticcall(abi.encodePacked(o.selector));
             if (!ok || ret.length < 32) return false;
             int256 answer = o.kind == 2 ? int256(abi.decode(ret, (uint256))) : _chainlinkAnswer(ret);
-            vm.mockCall(o.oracle, abi.encodePacked(o.selector), _oracleReturn(o.kind, answer * 10, vm.getBlockTimestamp()));
+            vm.mockCall(
+                o.oracle, abi.encodePacked(o.selector), _oracleReturn(o.kind, answer * 10, vm.getBlockTimestamp())
+            );
             return true;
         }
         return false;
@@ -395,7 +505,15 @@ abstract contract Scenarios is HookLensScenarioBase {
     }
 
     function _parties() internal view returns (address[7] memory p) {
-        p = [address(lp), address(lp2), address(trader), address(trader2), address(manager), address(key.hooks), address(0)];
+        p = [
+            address(lp),
+            address(lp2),
+            address(trader),
+            address(trader2),
+            address(manager),
+            address(key.hooks),
+            address(0)
+        ];
     }
 
     function _snap() internal view returns (Snapshot memory s) {
@@ -450,17 +568,37 @@ abstract contract Scenarios is HookLensScenarioBase {
             conserved ? "true" : "false"
         );
         _recordWithMetrics(s, r, m);
-        if (r.ok && (!actorMatches || !conserved)) {
+        if (r.ok && !actorMatches) {
+            // Invariant (1) broken: the actor's balance moved by something other than its BalanceDelta.
             _recordRaw(
                 Step(
                     string.concat("invariant_", s.name),
                     "invariant",
-                    actorMatches ? "value_left_tracked_set" : "actor_delta_mismatch",
+                    "actor_delta_mismatch",
                     "conserved",
                     false,
-                    "Accounting invariant did not hold for this step"
+                    "The acting account's balance change differs from the BalanceDelta it was given"
                 ),
                 false,
+                "",
+                actorChange[0] - r.amount0,
+                actorChange[1] - r.amount1,
+                0,
+                ""
+            );
+        } else if (r.ok && !conserved) {
+            // Invariant (2) is reported, not failed: hooks may forward fees to accounts outside the
+            // tracked set {actors, PoolManager, hook}. amount0/amount1 = net change of the tracked set.
+            _recordRaw(
+                Step(
+                    string.concat("outflow_", s.name),
+                    "invariant",
+                    "value_left_tracked_set",
+                    "observe",
+                    false,
+                    "Tokens moved between the tracked set and other accounts (e.g. hook fee forwarding); the actor's balance still matched its delta"
+                ),
+                true,
                 "",
                 sum[0],
                 sum[1],
@@ -482,7 +620,9 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         b = _snap();
         r = lp2.modify(key, tickLower + key.tickSpacing * 10, tickUpper - key.tickSpacing * 10, int256(liquidity / 2));
-        _checkStep(Step("lp2_add_narrow", "liquidity", "baseline", "success", false, "LP2 adds a narrower position"), r, b, 1);
+        _checkStep(
+            Step("lp2_add_narrow", "liquidity", "baseline", "success", false, "LP2 adds a narrower position"), r, b, 1
+        );
 
         b = _snap();
         r = _swapExactIn(trader, true, swapAmount);
@@ -493,7 +633,9 @@ abstract contract Scenarios is HookLensScenarioBase {
         _checkStep(Step("exact_out_1_for_0", "swap", "baseline", "success", false, "Exact-output swap"), r, b, 3);
         if (r.ok) {
             _recordRaw(
-                Step("exact_out_amount_delivered", "swap", "baseline", "observe", false, "Output received vs requested"),
+                Step(
+                    "exact_out_amount_delivered", "swap", "baseline", "observe", false, "Output received vs requested"
+                ),
                 r.amount0 == int256(_out(false) / 2),
                 "",
                 r.amount0,
@@ -514,7 +656,19 @@ abstract contract Scenarios is HookLensScenarioBase {
         for (uint256 k; k < 3; k++) {
             b = _snap();
             r = _swapExactIn(trader, k % 2 == 0, _in(k % 2 == 0) / 3);
-            _checkStep(Step(string.concat("repeated_swap_", vm.toString(k)), "swap", "baseline", "success", false, "Repeated swap"), r, b, 2);
+            _checkStep(
+                Step(
+                    string.concat("repeated_swap_", vm.toString(k)),
+                    "swap",
+                    "baseline",
+                    "success",
+                    false,
+                    "Repeated swap"
+                ),
+                r,
+                b,
+                2
+            );
         }
 
         b = _snap();
@@ -578,15 +732,47 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         if (cfg.upgradeSelector != bytes4(0)) {
             OpResult memory r = _add(lp, liquidity);
-            _record(Step("add_before_upgrade", "upgrade", "baseline", "success", false, "LP adds liquidity before any upgrade"), r);
+            _record(
+                Step(
+                    "add_before_upgrade",
+                    "upgrade",
+                    "baseline",
+                    "success",
+                    false,
+                    "LP adds liquidity before any upgrade"
+                ),
+                r
+            );
             RevertingImplementation impl = new RevertingImplementation();
             bytes memory call = abi.encodeWithSelector(cfg.upgradeSelector, address(impl));
             (bool ok, bytes memory ret) = outsider.tryCall(address(key.hooks), call);
-            _recordRaw(Step("unauthorized_upgrade", "upgrade", "unprivileged_caller", "revert", false, "Upgrade attempted by an account with no role"), ok, ret, 0, 0, 0, "");
+            _recordRaw(
+                Step(
+                    "unauthorized_upgrade",
+                    "upgrade",
+                    "unprivileged_caller",
+                    "revert",
+                    false,
+                    "Upgrade attempted by an account with no role"
+                ),
+                ok,
+                ret,
+                0,
+                0,
+                0,
+                ""
+            );
             if (cfg.proxyAdmin != address(0)) {
                 (ok, ret) = _privilegedCall(cfg.proxyAdmin, address(key.hooks), call);
                 _recordRaw(
-                    Step("authorized_upgrade_to_reverting_impl", "upgrade", "privileged_admin", "observe", true, "Proxy admin upgrades to an implementation whose callbacks revert"),
+                    Step(
+                        "authorized_upgrade_to_reverting_impl",
+                        "upgrade",
+                        "privileged_admin",
+                        "observe",
+                        true,
+                        "Proxy admin upgrades to an implementation whose callbacks revert"
+                    ),
                     ok,
                     ret,
                     0,
@@ -597,7 +783,14 @@ abstract contract Scenarios is HookLensScenarioBase {
                 if (ok) {
                     r = _remove(lp, _positionLiquidity(lp));
                     _record(
-                        Step("remove_after_upgrade", "upgrade", "upgraded_implementation", "success", true, "LP removal after an authorized upgrade"),
+                        Step(
+                            "remove_after_upgrade",
+                            "upgrade",
+                            "upgraded_implementation",
+                            "success",
+                            true,
+                            "LP removal after an authorized upgrade"
+                        ),
                         r
                     );
                 }
@@ -616,7 +809,9 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         uint256 snap = vm.snapshotState();
         r = _swapExactIn(trader, true, swapAmount);
-        _record(Step("single_large_swap", "split_vs_single", "single", "observe", false, "One swap of the full amount"), r);
+        _record(
+            Step("single_large_swap", "split_vs_single", "single", "observe", false, "One swap of the full amount"), r
+        );
         int256 singleOut = r.amount1;
         vm.revertToState(snap);
 
@@ -624,13 +819,19 @@ abstract contract Scenarios is HookLensScenarioBase {
         OpResult memory a = _swapExactIn(trader, true, swapAmount / 2);
         OpResult memory b = _swapExactIn(trader, true, swapAmount - swapAmount / 2);
         _recordRaw(
-            Step("split_two_swaps", "split_vs_single", "split", "observe", false, "Two swaps summing to the same input"),
+            Step(
+                "split_two_swaps", "split_vs_single", "split", "observe", false, "Two swaps summing to the same input"
+            ),
             a.ok && b.ok,
             a.ok ? b.revertData : a.revertData,
             a.amount0 + b.amount0,
             a.amount1 + b.amount1,
             a.gasUsed + b.gasUsed,
-            string.concat(_metric("single_swap_output1", singleOut), ",", _metric("split_minus_single_output1", (a.amount1 + b.amount1) - singleOut))
+            string.concat(
+                _metric("single_swap_output1", singleOut),
+                ",",
+                _metric("split_minus_single_output1", (a.amount1 + b.amount1) - singleOut)
+            )
         );
         vm.revertToState(snap);
 
@@ -640,7 +841,17 @@ abstract contract Scenarios is HookLensScenarioBase {
         _swapExactIn(trader, true, swapAmount);
         _swapExactIn(trader, false, swapAmount1);
         OpResult memory exitBefore = _remove(lp, _positionLiquidity(lp));
-        _record(Step("lp_added_before_swaps_exit", "liquidity_ordering", "add_then_swap", "success", false, "LP exit after swaps occurred while in range"), exitBefore);
+        _record(
+            Step(
+                "lp_added_before_swaps_exit",
+                "liquidity_ordering",
+                "add_then_swap",
+                "success",
+                false,
+                "LP exit after swaps occurred while in range"
+            ),
+            exitBefore
+        );
         vm.revertToState(snap);
 
         snap = vm.snapshotState();
@@ -648,7 +859,17 @@ abstract contract Scenarios is HookLensScenarioBase {
         _swapExactIn(trader, false, swapAmount1);
         r = _add(lp, liquidity);
         OpResult memory exitAfter = _remove(lp, _positionLiquidity(lp));
-        _record(Step("lp_added_after_swaps_exit", "liquidity_ordering", "swap_then_add", "success", false, "LP exit when swaps happened before joining"), exitAfter);
+        _record(
+            Step(
+                "lp_added_after_swaps_exit",
+                "liquidity_ordering",
+                "swap_then_add",
+                "success",
+                false,
+                "LP exit when swaps happened before joining"
+            ),
+            exitAfter
+        );
         vm.revertToState(snap);
 
         // Round trips: repeated back-and-forth swaps by one trader.
@@ -662,7 +883,22 @@ abstract contract Scenarios is HookLensScenarioBase {
             net0 += x.amount0;
             net1 += x.amount1;
         }
-        _recordRaw(Step("round_trip_swaps", "repeated", "baseline", "observe", false, "Net trader position after four alternating swaps"), allOk, "", net0, net1, 0, "");
+        _recordRaw(
+            Step(
+                "round_trip_swaps",
+                "repeated",
+                "baseline",
+                "observe",
+                false,
+                "Net trader position after four alternating swaps"
+            ),
+            allOk,
+            "",
+            net0,
+            net1,
+            0,
+            ""
+        );
         vm.revertToState(snap);
         _finish();
     }

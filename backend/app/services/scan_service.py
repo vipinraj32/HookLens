@@ -8,12 +8,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analyzers.bytecode import analyze_bytecode
-from app.analyzers.context import AnalysisContext
-from app.analyzers.core import SEVERITY_ORDER, Collector, Severity
-from app.analyzers.permissions import decode, summarize
-from app.analyzers.runner import ANALYZER_VERSION, run_analyzers
-from app.analyzers.source.ast_index import AstIndex
 from app.chains import get_chain
 from app.config import get_settings
 from app.db.base import session_scope
@@ -25,6 +19,12 @@ from app.services.evm import validate_address, validate_pool_id
 from app.services.pools import discover_pools, read_pool_state, token_metadata
 from app.services.resolver import resolve_contract
 from app.services.rpc import RpcClient
+from hooklens.analyzers.bytecode import analyze_bytecode
+from hooklens.analyzers.context import AnalysisContext
+from hooklens.analyzers.core import SEVERITY_ORDER, Collector, Severity
+from hooklens.analyzers.permissions import decode, summarize
+from hooklens.analyzers.runner import ANALYZER_VERSION, run_analyzers
+from hooklens.analyzers.source.ast_index import AstIndex
 
 log = logging.getLogger(__name__)
 

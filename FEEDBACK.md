@@ -92,8 +92,62 @@ v4-periphery `c6e4754`, v4-core `59d3ecf`.
   - *Fix:* use `owner()` at the pinned block when the source exposes it. Otherwise rank owner-named
     variables first, then other role names, then the variable most used by access checks. After the
     fix, the same simulation's authorized calls succeed.
+- **False accounting failure for fee-forwarding hooks** (found by a live mainnet fork simulation).
+  - *Observed:* on a Clanker pool, the accounting scenario reported 7 "failed" invariants, labelled
+    `observed=revert` although nothing reverted.
+  - *Root cause:* the harness's own comment said tokens leaving the tracked set {actors,
+    PoolManager, hook} should be reported, not failed, but the code recorded them as failed LP
+    expectations. Clanker forwards fees to an external recipient, while every trader's balance still
+    matched its BalanceDelta.
+  - *Fix:* a BalanceDelta mismatch remains a failure. Value leaving the tracked set is now an
+    `outflow_*` observation with the net amounts. Re-run: 19/19 steps met their expectations.
 - **Anvil integration tests could skip silently in CI.**
   - *Fix:* `HL_TEST_ANVIL=1` now turns a missing chain or forge into a hard error.
+
+## CLI and local scanner
+
+- **Logic behind a `BaseHook` dispatcher was invisible** (found by the fixture tests).
+  - *Observed:* the OpenZeppelin-style `BaseHook` implements `beforeRemoveLiquidity` and forwards
+    it to an internal virtual `_beforeRemoveLiquidity`. The AST index resolved that internal call
+    to the base declaration, an empty function, so a withdrawal lock in the override was not
+    found.
+  - *Fix:* internal calls now resolve to the most-derived override (`baseFunctions`
+    linearisation). Explicit `super.` calls are left alone.
+- **False withdrawal finding from `onlyPoolManager`** (found by scanning
+  uniswapfoundation/v4-template).
+  - *Observed:* the access guard was reported as a withdrawal revert condition on `Counter`.
+  - *Root cause:* `if (msg.sender != poolManager) revert NotPoolManager();` was recorded twice:
+    once as a guarded revert and once as an unconditional revert.
+  - *Fix:* reverts nested in an `if` are no longer also recorded as bare reverts. After the fix,
+    Counter has only an informational finding.
+- **Shallow submodule clone failed on v4-template.**
+  - *Root cause:* a submodule pins a commit that a depth-1 fetch cannot reach.
+  - *Fix:* fall back to a full-depth submodule update.
+- **Deep submodule chains on Windows** (found by scanning v4-template from the installed wheel).
+  - *Observed:* recursive submodule checkout failed with `Filename too long`, then `'$GIT_DIR' too big`,
+    six levels deep in test-only dependencies
+    (`lib/uniswap-hooks/lib/v4-periphery/lib/v4-core/lib/openzeppelin-contracts/lib/forge-std/lib/ds-test`).
+    The scan still compiled, because the hook only needs the top-level libraries, but the warning
+    claimed submodules "could not be fetched".
+  - *Fix:* git runs with `core.longpaths=true`. A path-length failure skips the useless full-depth
+    retry, and the note names exactly which nested submodules are missing.
+  - *Follow-up bug:* `shutil.rmtree` could not delete the resulting long paths, which left partial
+    temp directories behind. Cleanup now uses the `\\?\` extended-length prefix on Windows, and
+    the network test asserts that no temp directory remains.
+- **HTML report blocked by its own CSP.** Inline `style=` attributes are covered by `style-src`,
+  so the hashed-style CSP blocked them. They were replaced by classes and an SVG severity bar.
+  A test now asserts there are no `style="` attributes.
+- **Mangled job summary on Windows** (found by the action test).
+  - *Observed:* `hooklens summary > file` wrote cp1252 bytes, so `·` became `0xB7` and emoji
+    became `?`.
+  - *Fix:* redirected stdout and stderr are always UTF-8.
+- **Invalid `action.yml`** (found by the action test). Unquoted descriptions containing
+  `: ` (e.g. ``needs `security-events: write` ``) are YAML mapping syntax. GitHub would have
+  rejected the action.
+- **Invalid generated workflow.** `hooklens init --github-action` rendered `paths: ['src']`, a
+  Python list repr. Action inputs are strings; it now renders `paths: src`.
+- **PyPI name taken.** `hooklens` on PyPI is an unrelated project, so the documentation installs
+  from Git and the release workflow publishes only when explicitly enabled.
 
 ## Windows development notes
 
@@ -108,8 +162,12 @@ v4-periphery `c6e4754`, v4-core `59d3ecf`.
   none of the images (`app`, `sim`, `frontend`) has been built or run. The backend Dockerfile's uv
   image was bumped to 0.12 to match the version that wrote `uv.lock`; that was a precaution, not a
   fix for an observed failure.
-- **GitHub Actions.** `.github/workflows/ci.yml` has not run yet. Every step in it has been run
-  locally, except `npx playwright install --with-deps` and the Docker job.
+- **GitHub Actions.** Neither `.github/workflows/ci.yml`, `release-cli.yml` nor the composite
+  `action.yml` has run on GitHub yet. The action's scan, summary and gate scripts were run locally
+  under Git Bash by `packages/hooklens/tests/test_action.py`; the SARIF upload, artifact upload
+  and PR comment steps were not. The Docker image change that copies `packages/hooklens` is also
+  unbuilt. Every other step of `ci.yml` has been run locally, except
+  `npx playwright install --with-deps` and the Docker job.
 - **Mainnet and external services.** No mainnet RPC, Etherscan key or Anthropic key was
   configured.
   - The resolver, pool discovery and fork runner share their code paths with chain 31337, and those

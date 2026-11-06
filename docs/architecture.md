@@ -59,13 +59,30 @@ Progress streaming:
 - `GET /v1/jobs/{id}/events` streams progress as SSE (`progress`, then a final `end`).
 - The frontend falls back to polling `GET /v1/jobs/{id}` if the stream fails.
 
+## Analysis engine (`packages/hooklens`)
+
+The analyzers, permission decoder, bytecode disassembler and AST index live in the `hooklens`
+Python package. The backend depends on it as a uv path dependency
+(`backend/pyproject.toml` → `[tool.uv.sources]`), and the `hooklens` CLI is built from the same
+package. One engine, two front ends:
+
+- **Deployed mode** (web app). `AnalysisContext(mode="deployed")` holds a real address, an RPC
+  provider and runtime bytecode, and permissions come from the address bits.
+- **Source mode** (CLI). `AnalysisContext(mode="source")` holds a scope label
+  `source:<file>:<Contract>`, no RPC, and solc output compiled locally. Permissions come from the
+  parsed `getHookPermissions()` (or the implemented callbacks). Rules that need chain state record
+  why they do not apply instead of guessing.
+
+The CLI adds project discovery, import resolution, compilation, hook detection and report
+rendering (`hooklens/local/`, `hooklens/scanner.py`, `hooklens/reports/`). See [cli.md](cli.md).
+
 ## Scan pipeline (`app/services/scan_service.py`)
 
 1. **Resolve** (`resolver.py`, `rpc.py`, `evm.py`):
    - Validate the address, pin the block, read code, and detect proxies.
    - Get source from Etherscan, or match it to a local artifact.
    - Discover pools.
-2. **Analyze** (`analyzers/runner.py`). Each analyzer runs in isolation: a crash records an
+2. **Analyze** (`hooklens.analyzers.runner`). Each analyzer runs in isolation: a crash records an
    `analyzer_error` run and the scan finishes as `partial`.
 3. **Persist** the contract, scan, findings, evidence and analyzer runs.
 

@@ -48,3 +48,17 @@ HookLens reports what it analysed and executed. It does not certify safety. Spec
 - There are no user accounts: workspaces are anonymous cookies.
 - Only Ethereum mainnet, Sepolia and local Anvil are supported.
 - The Docker images were not built on the development machine (see [deployment](deployment.md)).
+
+## Command-line scanner
+
+- `hooklens scan` analyses Solidity source at one commit. It has no deployed address, so it cannot
+  check permission bits against the address, read on-chain owners, proxy implementations or
+  oracle state, or execute anything. `hooklens lab` (or the web app) is needed for execution.
+- Imports must resolve from the checkout. HookLens does not run `forge install`, `npm install` or
+  any repository script. Missing submodules or `node_modules` show up as unresolved imports
+  (exit 4).
+- Only Solidity is supported, compiled with an exact solc version that is installed or
+  downloadable.
+- The tarball fallback (used when `git` is missing) does not include git submodules.
+- The PyPI name `hooklens` belongs to an unrelated project. Install from Git or a release wheel
+  ([cli.md](cli.md#installation)).

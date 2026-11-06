@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vipinraj32/HookLens/blob/main/packages/hooklens/src/hooklens/schema/report-v1.schema.json",
+  "title": "HookLens static scan report",
+  "description": "Report produced by `hooklens scan`. schema_version follows semver: minor versions only add optional fields.",
+  "type": "object",
+  "required": ["schema_version", "tool", "scan", "files", "compilation", "contracts", "findings", "summary", "scope", "limitations", "execution_results"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "tool": {
+      "type": "object",
+      "required": ["name", "version", "analyzer_version"],
+      "properties": {
+        "name": {"const": "hooklens"},
+        "version": {"type": "string"},
+        "analyzer_version": {"type": "string"},
+        "python": {"type": "string"},
+        "information_uri": {"type": "string"}
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": ["id", "kind", "status", "started_at", "finished_at", "source", "configuration"],
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"const": "static-source"},
+        "status": {"enum": ["completed", "partial", "failed", "no-hooks"]},
+        "problems": {"type": "array", "items": {"type": "string"}},
+        "started_at": {"type": "string"},
+        "finished_at": {"type": "string"},
+        "duration_ms": {"type": "integer", "minimum": 0},
+        "error": {"$ref": "#/$defs/error"},
+        "source": {
+          "type": "object",
+          "required": ["kind", "target"],
+          "properties": {
+            "kind": {"enum": ["local", "github"]},
+            "target": {"type": "string"},
+            "url": {"type": ["string", "null"]},
+            "ref": {"type": ["string", "null"]},
+            "commit": {"type": ["string", "null"]},
+            "branch": {"type": ["string", "null"]},
+            "subpath": {"type": ["string", "null"]},
+            "display_name": {"type": ["string", "null"]},
+            "notes": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "project": {"type": "object"},
+        "configuration": {"type": "object"}
+      }
+    },
+    "files": {
+      "type": "object",
+      "properties": {
+        "selected": {"type": "array", "items": {"type": "string"}},
+        "excluded": {"type": "array", "items": {"type": "object", "required": ["file", "pattern"]}},
+        "unresolved_imports": {"type": "array", "items": {"type": "object", "required": ["unit", "reason"]}},
+        "blocked_by_imports": {"type": "array"}
+      }
+    },
+    "compilation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["solc_version", "status", "targets"],
+        "properties": {
+          "solc_version": {"type": "string"},
+          "evm_version": {"type": ["string", "null"]},
+          "status": {"enum": ["compiled", "failed", "pending"]},
+          "targets": {"type": "array", "items": {"type": "string"}},
+          "errors": {"type": "array"},
+          "bytecode": {"enum": ["ok", "failed", "not-run"]}
+        }
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "file", "kind", "analyzed", "reasons"],
+        "properties": {
+          "name": {"type": "string"},
+          "file": {"type": "string"},
+          "repo_path": {"type": ["string", "null"]},
+          "line": {"type": "integer"},
+          "kind": {"enum": ["hook", "candidate", "abstract-hook", "mock", "interface", "library", "not-a-hook"]},
+          "confidence": {"enum": ["high", "medium", "low", null]},
+          "reasons": {"type": "array", "items": {"type": "string"}},
+          "analyzed": {"type": "boolean"},
+          "skip_reason": {"type": ["string", "null"]},
+          "permissions": {"type": "object"},
+          "analyzer_runs": {"type": "array"},
+          "finding_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "execution_results": {
+      "description": "Always null in a static scan: execution-tested results are produced by `hooklens lab`.",
+      "type": "null"
+    },
+    "summary": {
+      "type": "object",
+      "required": ["contracts_discovered", "contracts_analyzed", "findings_total", "by_severity", "highest_severity"],
+      "properties": {
+        "by_severity": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low", "informational", "unknown"],
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "highest_severity": {"enum": ["critical", "high", "medium", "low", "informational", "unknown", null]}
+      }
+    },
+    "scope": {"type": "string"},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "severity": {"enum": ["critical", "high", "medium", "low", "informational", "unknown"]},
+    "location": {
+      "type": ["object", "null"],
+      "required": ["file", "start_line", "end_line"],
+      "properties": {
+        "file": {"type": "string", "description": "Repository-relative path when the file is inside the repository."},
+        "unit": {"type": "string", "description": "Solidity source unit name as compiled."},
+        "in_project": {"type": "boolean"},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+        "function": {"type": ["string", "null"]}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "rule", "rule_id", "analyzer", "category", "contract", "title", "severity", "severity_rationale", "confidence_basis", "status", "description", "location", "evidence", "fingerprint"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^HL-[A-Z]+-[0-9a-f]+$"},
+        "rule": {"type": "string", "pattern": "^HL\\.[A-Z]+\\.[a-z0-9_]+$"},
+        "rule_id": {"type": "string"},
+        "rule_name": {"type": "string"},
+        "analyzer": {"type": "string"},
+        "category": {"type": "string"},
+        "contract": {"type": "string"},
+        "contract_file": {"type": "string"},
+        "title": {"type": "string"},
+        "severity": {"$ref": "#/$defs/severity"},
+        "severity_rationale": {"type": "string"},
+        "confidence_basis": {"enum": ["source-ast", "bytecode", "rpc-state", "simulation", "metadata"]},
+        "status": {"enum": ["inferred", "observed", "needs-review"]},
+        "description": {"type": "string"},
+        "affected_functions": {"type": "array", "items": {"type": "string"}},
+        "lp_implications": {"type": "string"},
+        "remediation": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "related_scenarios": {"type": "array", "items": {"type": "string"}},
+        "location": {"$ref": "#/$defs/location"},
+        "locations": {"type": "array", "items": {"$ref": "#/$defs/location"}},
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "title", "basis"],
+            "properties": {
+              "id": {"type": "string"},
+              "kind": {"type": "string"},
+              "title": {"type": "string"},
+              "basis": {"type": "string"},
+              "location": {"$ref": "#/$defs/location"},
+              "excerpt": {"type": ["string", "null"]},
+              "excerpt_start_line": {"type": ["integer", "null"]},
+              "data": {"type": "object"}
+            }
+          }
+        },
+        "fingerprint": {"type": "string"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["kind", "message", "exit_code"],
+      "properties": {
+        "kind": {"type": "string"},
+        "message": {"type": "string"},
+        "hint": {"type": ["string", "null"]},
+        "exit_code": {"type": "integer"}
+      }
+    }
+  }
+}

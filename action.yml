@@ -1,0 +1,212 @@
+name: HookLens static scan
+description: >-
+  Static analysis of Uniswap v4 hook contracts with the HookLens CLI. Writes HTML / JSON / SARIF reports,
+  a job summary, optional Code Scanning upload and an optional pull-request comment. Findings are
+  static indicators that need review, not confirmed exploits.
+author: HookLens
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  target:
+    description: Project directory to scan, relative to the workspace.
+    default: "."
+  paths:
+    description: Source paths relative to the project root (whitespace or newline separated). Empty = foundry.toml src, else src/ or contracts/.
+    default: ""
+  contracts:
+    description: Only analyse these contract names (whitespace separated).
+    default: ""
+  exclude:
+    description: Extra exclusion globs (whitespace or newline separated), e.g. src/legacy/**
+    default: ""
+  fail-on:
+    description: Fail the job when a finding at or above this severity exists (critical, high, medium, low, informational, never).
+    default: high
+  severity-threshold:
+    description: Lowest severity included in the reports.
+    default: informational
+  html-out:
+    description: HTML report path ("" to skip).
+    default: hooklens-report.html
+  json-out:
+    description: JSON report path. A JSON report is always produced (it feeds the job summary); this sets where.
+    default: hooklens-report.json
+  sarif-out:
+    description: SARIF report path ("" to skip SARIF and the Code Scanning upload).
+    default: hooklens.sarif
+  upload-sarif:
+    description: "Upload SARIF to GitHub Code Scanning (needs `security-events: write`; skipped for fork pull requests)."
+    default: "true"
+  upload-artifact:
+    description: Upload the reports as a workflow artifact.
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact.
+    default: hooklens-reports
+  comment-on-pr:
+    description: "Create or update one summary comment on the pull request (needs `pull-requests: write`; skipped for forks)."
+    default: "false"
+  config:
+    description: Path to a hooklens.toml (default - discovered in the project).
+    default: ""
+  extra-args:
+    description: "Additional arguments for `hooklens scan` (whitespace separated, no quoting)."
+    default: ""
+  python-version:
+    description: Python used to run HookLens.
+    default: "3.12"
+  github-token:
+    description: Token for the pull-request comment. Defaults to the workflow token; never printed.
+    default: ${{ github.token }}
+
+outputs:
+  exit-code:
+    description: "hooklens scan exit code: 0 ok, 1 fail-on threshold reached, 2 config, 3 source, 4 analysis, 5 report error."
+    value: ${{ steps.scan.outputs.exit-code }}
+  json-report:
+    description: Path of the JSON report.
+    value: ${{ steps.scan.outputs.json }}
+  sarif-report:
+    description: Path of the SARIF report (empty if not written).
+    value: ${{ steps.scan.outputs.sarif }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install HookLens CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m venv "$RUNNER_TEMP/hooklens-venv"
+        "$RUNNER_TEMP/hooklens-venv/bin/python" -m pip install --quiet --disable-pip-version-check "$GITHUB_ACTION_PATH/packages/hooklens"
+        echo "$RUNNER_TEMP/hooklens-venv/bin" >> "$GITHUB_PATH"
+        "$RUNNER_TEMP/hooklens-venv/bin/hooklens" version
+
+    - name: Run hooklens scan
+      id: scan
+      shell: bash
+      env:
+        HL_TARGET: ${{ inputs.target }}
+        HL_PATHS: ${{ inputs.paths }}
+        HL_CONTRACTS: ${{ inputs.contracts }}
+        HL_EXCLUDE: ${{ inputs.exclude }}
+        HL_FAIL_ON: ${{ inputs.fail-on }}
+        HL_THRESHOLD: ${{ inputs.severity-threshold }}
+        HL_HTML: ${{ inputs.html-out }}
+        HL_JSON: ${{ inputs.json-out }}
+        HL_SARIF: ${{ inputs.sarif-out }}
+        HL_CONFIG: ${{ inputs.config }}
+        HL_EXTRA: ${{ inputs.extra-args }}
+      run: |
+        set -uo pipefail
+        json="${HL_JSON:-$RUNNER_TEMP/hooklens-report.json}"
+        args=(scan "$HL_TARGET" --local --json "$json" --fail-on "$HL_FAIL_ON" --severity-threshold "$HL_THRESHOLD")
+        for p in $HL_PATHS; do args+=(--path "$p"); done
+        for c in $HL_CONTRACTS; do args+=(--contract "$c"); done
+        set -f  # keep exclusion globs literal
+        for x in $HL_EXCLUDE; do args+=(--exclude "$x"); done
+        # shellcheck disable=SC2206
+        extra=($HL_EXTRA)
+        set +f
+        [ -n "$HL_HTML" ] && args+=(--html "$HL_HTML")
+        [ -n "$HL_SARIF" ] && args+=(--sarif "$HL_SARIF")
+        [ -n "$HL_CONFIG" ] && args+=(--config "$HL_CONFIG")
+        hooklens "${args[@]}" "${extra[@]}"
+        code=$?
+        {
+          echo "exit-code=$code"
+          echo "json=$json"
+          if [ -n "$HL_SARIF" ] && [ -f "$HL_SARIF" ]; then echo "sarif=$HL_SARIF"; else echo "sarif="; fi
+        } >> "$GITHUB_OUTPUT"
+        echo "hooklens exited with $code"
+
+    - name: Job summary
+      if: always() && steps.scan.outputs.json != ''
+      shell: bash
+      env:
+        HL_JSON: ${{ steps.scan.outputs.json }}
+        HL_HTML: ${{ inputs.html-out }}
+        HL_SARIF: ${{ steps.scan.outputs.sarif }}
+        HL_FAIL_ON: ${{ inputs.fail-on }}
+        HL_UPLOAD: ${{ inputs.upload-artifact }}
+        HL_ARTIFACT: ${{ inputs.artifact-name }}
+      run: |
+        set -uo pipefail
+        [ -f "$HL_JSON" ] || { echo "No JSON report was written; see the scan step log." >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+        arts=()
+        if [ "$HL_UPLOAD" = "true" ]; then
+          [ -n "$HL_HTML" ] && [ -f "$HL_HTML" ] && arts+=(--artifact "HTML report (artifact '$HL_ARTIFACT')=$HL_HTML")
+          arts+=(--artifact "JSON report (artifact '$HL_ARTIFACT')=$HL_JSON")
+          [ -n "$HL_SARIF" ] && arts+=(--artifact "SARIF (artifact '$HL_ARTIFACT')=$HL_SARIF")
+        fi
+        hooklens summary "$HL_JSON" --fail-on "$HL_FAIL_ON" "${arts[@]}" >> "$GITHUB_STEP_SUMMARY" || true
+
+    - name: Upload SARIF to Code Scanning
+      # Fork pull requests get a read-only token; skip instead of failing the job.
+      if: >-
+        always() && inputs.upload-sarif == 'true' && steps.scan.outputs.sarif != '' &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif }}
+        category: hooklens
+
+    - name: Upload reports
+      if: always() && inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.html-out }}
+          ${{ steps.scan.outputs.json }}
+          ${{ steps.scan.outputs.sarif }}
+        if-no-files-found: ignore
+        retention-days: 14
+
+    - name: Comment on pull request
+      if: >-
+        always() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository && steps.scan.outputs.json != ''
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        HL_JSON: ${{ steps.scan.outputs.json }}
+        HL_FAIL_ON: ${{ inputs.fail-on }}
+        HL_PR: ${{ github.event.pull_request.number }}
+        HL_REPO: ${{ github.repository }}
+        HL_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        [ -f "$HL_JSON" ] || exit 0
+        body="$RUNNER_TEMP/hooklens-comment.md"
+        hooklens summary "$HL_JSON" --compact --fail-on "$HL_FAIL_ON" > "$body"
+        printf '\n[Workflow run and full reports](%s)\n' "$HL_RUN_URL" >> "$body"
+        marker='<!-- hooklens-report -->'
+        existing=$(gh api --paginate "repos/$HL_REPO/issues/$HL_PR/comments" \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1 || true)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$HL_REPO/issues/comments/$existing" -F "body=@$body" > /dev/null
+        else
+          gh api -X POST "repos/$HL_REPO/issues/$HL_PR/comments" -F "body=@$body" > /dev/null
+        fi
+
+    - name: Apply fail-on result
+      if: always()
+      shell: bash
+      env:
+        HL_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: |
+        case "${HL_CODE:-4}" in
+          0) echo "HookLens: no findings at or above the fail-on threshold." ;;
+          1) echo "::error title=HookLens::Findings at or above the fail-on threshold. See the job summary and reports."; exit 1 ;;
+          *) echo "::error title=HookLens::Scanner error (exit ${HL_CODE:-unknown}); this is not a security verdict. See the scan step log."; exit "${HL_CODE:-4}" ;;
+        esac

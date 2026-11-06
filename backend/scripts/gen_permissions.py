@@ -1,4 +1,4 @@
-"""Generate app/analyzers/permissions_generated.py from the pinned Uniswap v4-core sources.
+"""Generate packages/hooklens/src/hooklens/analyzers/permissions_generated.py from the pinned Uniswap v4-core sources.
 
 Flags are parsed from v4-core `src/libraries/Hooks.sol`; callback selectors come from the
 compiled `IHooks` artifact (`forge build` output, `methodIdentifiers`). Nothing is hardcoded:
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CORE = ROOT / "contracts" / "lib" / "v4-periphery" / "lib" / "v4-core"
 HOOKS_SOL = CORE / "src" / "libraries" / "Hooks.sol"
 IHOOKS_ARTIFACT = ROOT / "contracts" / "out" / "IHooks.sol" / "IHooks.json"
-OUT = ROOT / "backend" / "app" / "analyzers" / "permissions_generated.py"
+OUT = ROOT / "packages" / "hooklens" / "src" / "hooklens" / "analyzers" / "permissions_generated.py"
 
 FLAG_RE = re.compile(r"uint160\s+internal\s+constant\s+([A-Z_]+)_FLAG\s*=\s*1\s*<<\s*(\d+)\s*;")
 MASK_RE = re.compile(r"ALL_HOOK_MASK\s*=\s*uint160\(\(1\s*<<\s*(\d+)\)\s*-\s*1\)")

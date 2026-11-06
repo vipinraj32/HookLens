@@ -19,8 +19,8 @@ The original product specification is kept in [docs/product-spec.md](docs/produc
 | Stage | What happens | Where |
 |---|---|---|
 | Resolve | Validates the address, pins block number and hash, reads runtime code, detects EIP-1967 / EIP-1167 / EIP-897 proxies, fetches verified source (Etherscan v2) or matches local Foundry artifacts (chain 31337), and discovers pools from `PoolManager` `Initialize` logs | `backend/app/services/` |
-| Permissions | Decodes the 14 hook permission bits from the address. Constants are generated from the vendored `Hooks.sol`, and a test fails if they drift. The decoded bits are compared with the declared `getHookPermissions()` and with the callbacks actually present in bytecode | `backend/app/analyzers/permissions*.py` |
-| Static analysis | Eight analyzer families (PRM, ACC, FEE, ORC, EXT, WDR, ACT, UPG, plus SRC integrity) over the compiler AST and the bytecode. Findings have stable IDs, a deterministic severity with a written rationale, a *confidence basis* (`source-ast`, `bytecode`, `rpc-state`, `simulation`, `metadata`), and evidence references | `backend/app/analyzers/` |
+| Permissions | Decodes the 14 hook permission bits from the address. Constants are generated from the vendored `Hooks.sol`, and a test fails if they drift. The decoded bits are compared with the declared `getHookPermissions()` and with the callbacks actually present in bytecode | `packages/hooklens/src/hooklens/analyzers/permissions*.py` |
+| Static analysis | Eight analyzer families (PRM, ACC, FEE, ORC, EXT, WDR, ACT, UPG, plus SRC integrity) over the compiler AST and the bytecode. Findings have stable IDs, a deterministic severity with a written rationale, a *confidence basis* (`source-ast`, `bytecode`, `rpc-state`, `simulation`, `metadata`), and evidence references | `packages/hooklens/src/hooklens/analyzers/` (shared by the web app and the CLI) |
 | Adversarial lab | Six env-driven Foundry scenarios (withdrawal failure, oracle failure, fee escalation, admin and upgrade, accounting invariants, transaction ordering) run against the real `PoolManager` and the resolved `PoolKey` on a fork. The planner turns static findings into scenario parameters, and a scenario with nothing to exercise is reported as `unsupported` with a reason | `contracts/test/`, `backend/app/simulation/` |
 | LP exposure | Exact-integer port of TickMath, SqrtPriceMath, LiquidityAmounts and FullMath, checked against golden vectors emitted by Forge. Every figure carries a tag: `on-chain`, `measured`, `hypothetical` or `unavailable` | `backend/app/lp/` |
 | Evidence | Searchable store of source excerpts with line ranges, bytecode facts, RPC state, simulation steps and decoded traces | `/v1/evidence` |
@@ -30,6 +30,30 @@ The original product specification is kept in [docs/product-spec.md](docs/produc
 All long operations (scans, simulations, reports, explanations) run as jobs. Each job has progress
 events over SSE (with a polling fallback), cooperative cancellation, timeouts, retries for
 retryable infrastructure errors only, and a heartbeat reaper that catches workers that disappear.
+
+## Command-line scanner and GitHub Action
+
+The analyzers are also packaged as a local-first CLI, `hooklens`. It scans Solidity source in a
+local project or a public GitHub repository. No API key, database or server is needed. It writes a
+standalone HTML report, versioned JSON and SARIF for GitHub Code Scanning, and can gate CI on
+finding severity.
+
+```bash
+pip install "hooklens @ git+https://github.com/vipinraj32/HookLens#subdirectory=packages/hooklens"
+
+hooklens scan ./my-hook-project --local --html report.html
+hooklens scan https://github.com/uniswapfoundation/v4-template --html report.html
+hooklens scan . --json report.json --sarif report.sarif --fail-on high
+hooklens init --github-action        # hooklens.toml + .github/workflows/hooklens.yml
+```
+
+In a workflow, use the composite action at the repository root (`uses: vipinraj32/HookLens@main`).
+It runs the same CLI, writes the job summary, uploads SARIF (skipped for fork PRs) and the
+reports, and can comment on the PR. `hooklens lab` runs the Foundry/Anvil execution scenarios
+against a deployed hook through a running HookLens server.
+
+The PyPI name `hooklens` belongs to an unrelated project, so install from Git as shown above. See
+[docs/cli.md](docs/cli.md) for configuration, report formats, exit codes and limitations.
 
 ## Supported chains
 
@@ -104,13 +128,16 @@ published. See [docs/deployment.md](docs/deployment.md).
 |---|---|---|
 | Backend | `cd backend && uv run pytest` | Anvil- and forge-marked tests skip unless a chain with fixtures is running. Set `HL_TEST_ANVIL=1` to make them mandatory |
 | Backend lint/types | `uv run ruff check . && uv run ruff format --check . && uv run mypy app` | |
+| CLI package | `cd packages/hooklens && uv sync && uv run pytest` | Fixture hooks, reports (JSON schema, SARIF, HTML escaping/CSP), CLI exit codes, config, import resolution, GitHub acquisition (mocked), `lab` (mocked API), and the composite action's scripts. `HOOKLENS_TEST_NETWORK=1 uv run pytest -m network` clones and scans uniswapfoundation/v4-template |
+| CLI lint/types/build | `uv run ruff check src tests && uv run mypy src && uv build` | |
 | Contracts | `cd contracts && forge test` | Fixture unit, fuzz and invariant tests, plus LP math vectors. The env-driven scenario entry points skip when run without backend-provided parameters |
 | Frontend | `cd frontend && npm run lint && npm run typecheck && npm test` | Vitest + Testing Library |
 | End-to-end | `cd frontend && npm run build && npx playwright test` | Needs `scripts/dev-chain.sh` running. Starts the API and the web server itself |
 
 Results on the development machine (Windows 11, Node 22.11, Python 3.12, Foundry 1.9.0) when this
 README was written:
-- Backend: 107 passed.
+- Backend: 105 passed, 7 skipped (Anvil/forge-marked tests without a running chain).
+- CLI package: 99 passed, 1 skipped (the network test, which passed separately in about 97 s).
 - Forge: 20 passed, 6 skipped (the env-driven scenario entry points).
 - Vitest: 18 passed.
 - Playwright: 2 passed (the desktop workflow and the mobile navigation drawer).
@@ -121,7 +148,10 @@ The Docker images and the GitHub Actions workflow have **not** been run yet. See
 ## Repository layout
 
 ```
-backend/    FastAPI app, analyzers, simulation runner, LP math, AI, reports, Alembic migrations
+backend/    FastAPI app, simulation runner, LP math, AI, reports, Alembic migrations
+packages/hooklens/  Shared analysis engine + `hooklens` CLI (local scanner, HTML/JSON/SARIF reports)
+action.yml  Composite GitHub Action running the CLI
+examples/   Example GitHub Actions workflow
 contracts/  Foundry project: fixture hooks, actor harness, scenarios, invariants, deploy script
 frontend/   Next.js App Router UI (TypeScript strict, Tailwind v4, TanStack Query, Zod)
 docker/     Backend (app + sim targets) and frontend Dockerfiles
@@ -131,6 +161,7 @@ scripts/    dev-chain.sh
 
 ## Documentation
 
+- [CLI and GitHub Action](docs/cli.md)
 - [Architecture](docs/architecture.md)
 - [Threat model](docs/threat-model.md)
 - [Analyzers](docs/analyzers.md)

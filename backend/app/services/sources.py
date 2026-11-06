@@ -20,11 +20,11 @@ from typing import Any
 
 import httpx
 
-from app.analyzers.bytecode import mask_immutables, split_metadata
-from app.analyzers.source.bundle import SourceBundle
 from app.config import get_settings
 from app.errors import AppError, ExplorerError
 from app.services.evm import hex_to_bytes
+from hooklens.analyzers.bytecode import mask_immutables, split_metadata
+from hooklens.analyzers.source.bundle import SourceBundle
 
 log = logging.getLogger(__name__)
 

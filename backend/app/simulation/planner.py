@@ -15,12 +15,12 @@ from typing import Any
 
 from eth_abi import encode as abi_encode
 
-from app.analyzers.rules.common import encode_probe_args
 from app.config import get_settings
 from app.errors import AppError
 from app.lp import math as lpm
 from app.services.evm import selector
 from app.simulation.catalog import DEFAULT_ORDER, SCENARIOS
+from hooklens.analyzers.rules.common import encode_probe_args
 
 SPEC_VERSION = "hooklens-sim-spec/1.0.0"
 HARNESS_FILES = (

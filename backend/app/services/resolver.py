@@ -6,13 +6,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.analyzers.bytecode import EIP1167_PREFIX, analyze_bytecode, code_hash
 from app.chains import ChainConfig
 from app.config import get_settings
 from app.errors import AppError
 from app.services.evm import ZERO_ADDRESS, hex_to_bytes, selector, validate_address, word_to_address
 from app.services.rpc import RpcClient
 from app.services.sources import EtherscanProvider, LocalArtifactProvider, SourceResult
+from hooklens.analyzers.bytecode import EIP1167_PREFIX, analyze_bytecode, code_hash
 
 log = logging.getLogger(__name__)
 

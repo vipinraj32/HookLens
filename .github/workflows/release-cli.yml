@@ -1,0 +1,82 @@
+name: Release HookLens CLI
+
+# Builds the `hooklens` sdist + wheel for a GitHub release (tag `cli-v<version>`) and attaches them.
+# PyPI publishing is opt-in: set the repository variable PYPI_PUBLISH=true and configure a PyPI trusted
+# publisher for this workflow + the `pypi` environment. NOTE: the PyPI name "hooklens" is currently taken
+# by an unrelated project, so publishing under that name will be rejected until the name question is
+# resolved (see docs/cli.md#installation). No API tokens are stored in this repository.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'cli-v')
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: packages/hooklens } }
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12" }
+      - name: Refuse to release without a license
+        working-directory: .
+        run: |
+          if ! ls LICENSE* packages/hooklens/LICENSE* >/dev/null 2>&1; then
+            echo "::error::No LICENSE file. Choose a license (and add it to packages/hooklens/pyproject.toml) before publishing."
+            exit 1
+          fi
+      - id: meta
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(uv run --no-project python -c "import re,pathlib;print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('src/hooklens/__init__.py').read_text()).group(1))")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ -n "${TAG:-}" ] && [ "$TAG" != "cli-v$version" ]; then
+            echo "::error::Tag $TAG does not match package version $version (expected cli-v$version)."
+            exit 1
+          fi
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+      - name: Smoke-test the wheel
+        run: |
+          python -m venv /tmp/v && /tmp/v/bin/pip install --quiet dist/*.whl
+          /tmp/v/bin/hooklens version
+          /tmp/v/bin/hooklens scan "$GITHUB_WORKSPACE/contracts" --local --json /tmp/r.json --fail-on never -q
+      - uses: actions/upload-artifact@v4
+        with: { name: dist, path: packages/hooklens/dist/ }
+
+  attach:
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+
+  pypi:
+    needs: build
+    if: github.event_name == 'release' && vars.PYPI_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # PyPI trusted publishing (OIDC); no stored token
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - uses: pypa/gh-action-pypi-publish@release/v1

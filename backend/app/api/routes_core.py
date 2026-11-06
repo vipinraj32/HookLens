@@ -14,7 +14,6 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app import __version__
-from app.analyzers.permissions import decode, is_valid_hook_address, summarize
 from app.api import schemas as S
 from app.api.security import limit_jobs, workspace
 from app.chains import get_chain, load_chains
@@ -29,6 +28,7 @@ from app.services.resolver import resolve_contract
 from app.services.rpc import RpcClient
 from app.services.scan_service import create_scan
 from app.simulation import forge_runner
+from hooklens.analyzers.permissions import decode, is_valid_hook_address, summarize
 
 router = APIRouter(prefix="/v1")
 
@@ -157,7 +157,7 @@ def get_findings(
     basis: str | None = None,
     status: str | None = None,
 ) -> list[Finding]:
-    from app.analyzers.core import SEVERITY_ORDER, Severity
+    from hooklens.analyzers.core import SEVERITY_ORDER, Severity
 
     owned_scan(db, ws, scan_id)
     q = select(Finding).where(Finding.scan_id == scan_id)

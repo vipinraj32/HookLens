@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import __version__
-from app.analyzers.core import SEVERITY_ORDER, Severity
 from app.config import get_settings
 from app.db.base import session_scope
 from app.db.models import Contract, Evidence, ExposureResult, Finding, LpPosition, Report, Scan, Simulation
@@ -20,6 +19,7 @@ from app.errors import AppError, NotFound
 from app.jobs.dispatch import get_dispatcher
 from app.jobs.manager import JobContext, create_job, on_terminal, register
 from app.simulation.interpret import findings_for_simulation
+from hooklens.analyzers.core import SEVERITY_ORDER, Severity
 
 REPORT_VERSION = "1.0.0"
 DISCLAIMER = (

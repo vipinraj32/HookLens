@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from app.analyzers import permissions_generated as gen
-from app.analyzers.bytecode import analyze_bytecode, disassemble, split_metadata
-from app.analyzers.permissions import decode, is_valid_hook_address, summarize
+from hooklens.analyzers import permissions_generated as gen
+from hooklens.analyzers.bytecode import analyze_bytecode, disassemble, split_metadata
+from hooklens.analyzers.permissions import decode, is_valid_hook_address, summarize
 
 BACKEND = Path(__file__).resolve().parents[1]
 

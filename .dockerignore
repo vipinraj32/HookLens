@@ -14,3 +14,5 @@ contracts/cache
 contracts/broadcast
 contracts/sim-out/runs
 contracts/deployments/*.json
+packages/hooklens/.venv
+packages/hooklens/dist

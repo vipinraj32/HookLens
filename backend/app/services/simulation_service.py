@@ -11,7 +11,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analyzers.core import Collector
 from app.chains import get_chain
 from app.config import get_settings
 from app.db.base import session_scope
@@ -25,6 +24,7 @@ from app.simulation.catalog import SCENARIOS
 from app.simulation.decode import registry
 from app.simulation.interpret import interpret, observed_findings
 from app.simulation.planner import build_spec
+from hooklens.analyzers.core import Collector
 
 log = logging.getLogger(__name__)
 SIM_ROOT_REL = "sim-out/runs"

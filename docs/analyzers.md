@@ -24,8 +24,9 @@ other analyzers still run.
 ## Inputs
 
 - **Permission bits.** Decoded from the low 14 bits of the hook address. The constants in
-  `permissions_generated.py` are generated from the vendored `lib/v4-core/src/libraries/Hooks.sol`
-  by `scripts/gen_permissions.py`, and `tests/test_permissions_bytecode.py` fails if they drift.
+  `packages/hooklens/src/hooklens/analyzers/permissions_generated.py` are generated from the
+  vendored `lib/v4-core/src/libraries/Hooks.sol` by `backend/scripts/gen_permissions.py`, and
+  `backend/tests/test_permissions_bytecode.py` fails if they drift.
 - **Bytecode** (`bytecode.py`). A disassembler extracts:
   - dispatcher selectors
   - CALL, DELEGATECALL, STATICCALL, CREATE, CREATE2 and SELFDESTRUCT presence

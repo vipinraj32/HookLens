@@ -1,0 +1,31 @@
+# HookLens static scan for Uniswap v4 hooks.
+# Runs on pull requests and pushes; uploads SARIF to GitHub Code Scanning and the HTML/JSON reports as
+# artifacts. No secrets, Anthropic key or HookLens server are needed for static scanning.
+name: HookLens
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write   # SARIF upload (skipped automatically for pull requests from forks)
+  pull-requests: write     # only used when comment-on-pr is true
+
+jobs:
+  hooklens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive   # Foundry dependencies (lib/) are usually git submodules
+      # Pin to a release tag or commit SHA of HookLens once one is published.
+      - uses: vipinraj32/HookLens@main
+        with:
+          paths: src
+          fail-on: high
+          html-out: hooklens-report.html
+          json-out: hooklens-report.json
+          sarif-out: hooklens.sarif
+          comment-on-pr: false

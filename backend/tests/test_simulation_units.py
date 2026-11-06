@@ -8,7 +8,6 @@ from types import SimpleNamespace
 import pytest
 from eth_abi import encode
 
-from app.analyzers.core import Collector
 from app.errors import AppError
 from app.lp import math as m
 from app.services.evm import selector
@@ -17,6 +16,7 @@ from app.simulation.decode import Registry, decode_revert
 from app.simulation.forge_runner import ForgeRun, repro_command
 from app.simulation.interpret import interpret, observed_findings, step_status
 from app.simulation.planner import build_spec, plan_position, select_pool
+from hooklens.analyzers.core import Collector
 
 HOOK = "0x9d536C7335f6ca4D20384AaF7F655eb364B00200"
 

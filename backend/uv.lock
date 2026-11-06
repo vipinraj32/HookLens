@@ -797,6 +797,38 @@ wheels = [
 ]
 
 [[package]]
+name = "hooklens"
+source = { editable = "../packages/hooklens" }
+dependencies = [
+    { name = "click" },
+    { name = "eth-utils" },
+    { name = "httpx" },
+    { name = "py-solc-x" },
+    { name = "pycryptodome" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1" },
+    { name = "eth-utils", specifier = ">=4.1" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "jsonschema", marker = "extra == 'schema'", specifier = ">=4.21" },
+    { name = "py-solc-x", specifier = ">=2.0" },
+    { name = "pycryptodome", specifier = ">=3.20" },
+]
+provides-extras = ["schema"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = ">=1.2" },
+    { name = "jsonschema", specifier = ">=4.21" },
+    { name = "mypy", specifier = ">=1.11" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "ruff", specifier = ">=0.6" },
+]
+
+[[package]]
 name = "hooklens-backend"
 version = "0.1.0"
 source = { editable = "." }
@@ -807,6 +839,7 @@ dependencies = [
     { name = "eth-abi" },
     { name = "eth-utils" },
     { name = "fastapi" },
+    { name = "hooklens" },
     { name = "httpx" },
     { name = "langgraph" },
     { name = "psycopg", extra = ["binary"] },
@@ -838,6 +871,7 @@ requires-dist = [
     { name = "eth-abi", specifier = ">=5.1" },
     { name = "eth-utils", specifier = ">=4.1" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "hooklens", editable = "../packages/hooklens" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "langgraph", specifier = ">=0.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },

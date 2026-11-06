@@ -1,0 +1,9 @@
+# HOOKLENS CLI TEST FIXTURE: a Foundry project used by the hooklens test-suite.
+# lib/v4-core is provided by the tests (copied from the HookLens contracts/ submodules).
+[profile.default]
+src = "src"
+libs = ["lib"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200

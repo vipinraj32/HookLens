@@ -31,13 +31,70 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
-          cache-dependency-glob: backend/uv.lock
+          cache-dependency-glob: |
+            backend/uv.lock
+            packages/hooklens/pyproject.toml
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy app
       # Anvil/forge-marked tests skip here; they run in the integration job.
       - run: uv run pytest -q
+
+  cli:
+    name: HookLens CLI package (ruff, mypy, pytest, build, wheel smoke test)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: packages/hooklens } }
+    steps:
+      - uses: actions/checkout@v4
+        # v4-core sources are used by the fixture hook tests.
+        with: { submodules: recursive }
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: packages/hooklens/uv.lock
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: uv run mypy src
+      - run: uv run pytest -q
+      - name: Real repository scan (uniswapfoundation/v4-template)
+        env: { HOOKLENS_TEST_NETWORK: "1" }
+        run: uv run pytest -q -m network
+      - run: uv build
+      - name: Install the wheel in a clean venv and run it
+        run: |
+          python -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install --quiet dist/*.whl
+          /tmp/wheel-venv/bin/hooklens --help
+          /tmp/wheel-venv/bin/hooklens version
+          cd /tmp && /tmp/wheel-venv/bin/hooklens scan "$GITHUB_WORKSPACE/contracts" --local             --json /tmp/r.json --sarif /tmp/r.sarif --html /tmp/r.html --fail-on never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hooklens-dist
+          path: packages/hooklens/dist/
+          retention-days: 7
+
+  action:
+    name: HookLens composite action (dogfood on contracts/)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - id: hooklens
+        uses: ./
+        with:
+          target: contracts
+          fail-on: high
+          html-out: hooklens-report.html
+          json-out: hooklens-report.json
+          sarif-out: hooklens.sarif
+          artifact-name: hooklens-dogfood
+      - run: test "${{ steps.hooklens.outputs.exit-code }}" = "0"
 
   contracts:
     name: Contracts (forge build/test)

@@ -1,0 +1,88 @@
+[project]
+name = "hooklens"
+dynamic = ["version"]
+description = "HookLens static scanner for Uniswap v4 hooks: CLI, HTML/JSON/SARIF reports and CI gating."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "HookLens contributors" }]
+keywords = ["uniswap", "uniswap-v4", "hooks", "solidity", "security", "static-analysis", "sarif"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+# The core install is deliberately small: no web framework, database, Foundry, Node.js or AI SDK.
+dependencies = [
+  "click>=8.1",
+  "eth-utils>=4.1",
+  "pycryptodome>=3.20",
+  "py-solc-x>=2.0",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# Validates generated JSON reports against the published schema (used by the test-suite / CI tools).
+schema = ["jsonschema>=4.21"]
+
+[project.scripts]
+hooklens = "hooklens.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/vipinraj32/HookLens"
+Documentation = "https://github.com/vipinraj32/HookLens/tree/main/docs/cli.md"
+Issues = "https://github.com/vipinraj32/HookLens/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "jsonschema>=4.21",
+    "build>=1.2",
+    "pyyaml>=6.0.3",
+]
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/hooklens/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hooklens"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/hooklens", "tests", "README.md", "pyproject.toml"]
+exclude = ["**/__pycache__"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "network: requires network access (GitHub / solc downloads); enabled with HOOKLENS_TEST_NETWORK=1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["src/hooklens/analyzers/permissions_generated.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+ignore = ["S101", "S603", "S607", "B008", "UP040", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "SIM117"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
