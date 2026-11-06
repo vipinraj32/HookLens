@@ -156,3 +156,56 @@ def test_parse_amount_and_price() -> None:
         parse_amount("1", None, "a")
     assert raw_price(m.Q96) == 1
     assert Decimal(1) == Decimal(raw_price(m.Q96).numerator)
+
+
+def _build(**kw: object) -> tuple:
+    args: dict = dict(
+        pool_state=_pool_state(0),
+        tick_spacing=60,
+        dec0=18,
+        dec1=18,
+        tick_lower=-600,
+        tick_upper=600,
+        price_lower=None,
+        price_upper=None,
+        amount0=None,
+        amount1=None,
+        liquidity=None,
+    )
+    args.update(kw)
+    return build_position(**args)  # type: ignore[arg-type]
+
+
+def test_in_range_one_sided_amount_sizes_from_that_token() -> None:
+    pos0, notes0 = _build(amount0=10**18)
+    d0, d1 = pos0.deposit()
+    assert pos0.liquidity > 0 and pos0.range_state() == "in-range"
+    # Uses (almost) all of the given token0, never more, and derives the token1 it needs.
+    assert 10**18 - 10 <= d0 <= 10**18 and d1 > 0
+    assert any("Only token0" in n for n in notes0)
+
+    pos1, notes1 = _build(amount1=10**18)
+    e0, e1 = pos1.deposit()
+    assert 10**18 - 10 <= e1 <= 10**18 and e0 > 0
+    assert any("Only token1" in n for n in notes1)
+
+    # Symmetric range at price 1: sizing from either side gives (nearly) the same liquidity.
+    assert abs(pos0.liquidity - pos1.liquidity) <= pos0.liquidity // 10**6
+
+
+def test_in_range_two_sided_amount_still_uses_the_binding_side() -> None:
+    pos, notes = _build(amount0=10**18, amount1=10**30)
+    d0, d1 = pos.deposit()
+    assert 10**18 - 10 <= d0 <= 10**18 and d1 < 10**30
+    assert not any("Only token" in n for n in notes)
+
+
+def test_out_of_range_wrong_token_is_a_specific_error() -> None:
+    with pytest.raises(AppError) as above:  # range above price holds token0 only
+        _build(tick_lower=600, tick_upper=1200, amount1=10**18)
+    assert above.value.code == "wrong_token_for_range" and "token0" in above.value.message
+    with pytest.raises(AppError) as below:  # range below price holds token1 only
+        _build(tick_lower=-1200, tick_upper=-600, amount0=10**18)
+    assert below.value.code == "wrong_token_for_range" and "token1" in below.value.message
+    pos, _ = _build(tick_lower=-1200, tick_upper=-600, amount1=10**18)
+    assert pos.range_state() == "above-range" and pos.deposit()[0] == 0  # price above range: token1 only

@@ -79,6 +79,8 @@ def _compare(db: Session, ws: str, body: CompareRequest) -> dict[str, Any]:
         amount0=a0,
         amount1=a1,
         liquidity=int(body.liquidity) if body.liquidity else None,
+        sym0=sym0,
+        sym1=sym1,
     )
     sim = None
     if body.simulation_id:

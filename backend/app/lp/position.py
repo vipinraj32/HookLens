@@ -119,6 +119,8 @@ def build_position(
     amount0: int | None,
     amount1: int | None,
     liquidity: int | None,
+    sym0: str = "token0",
+    sym1: str = "token1",
 ) -> tuple[Position, list[str]]:
     notes: list[str] = []
     if not pool_state or not pool_state.get("initialized"):
@@ -152,16 +154,34 @@ def build_position(
     if liquidity is None:
         if not amount0 and not amount1:
             raise AppError("amount_required", "Provide token amounts or liquidity.", status_code=422)
-        liquidity = lpm.get_liquidity_for_amounts(sp, sa, sb, amount0 or 0, amount1 or 0)
         if sp <= sa and not amount0:
-            notes.append("The range is above the current price: only token0 can be deposited.")
+            raise AppError(
+                "wrong_token_for_range",
+                f"The range is entirely above the current price, so the position holds only {sym0}. "
+                f"Provide a {sym0} amount.",
+                status_code=422,
+            )
         if sp >= sb and not amount1:
-            notes.append("The range is below the current price: only token1 can be deposited.")
+            raise AppError(
+                "wrong_token_for_range",
+                f"The range is entirely below the current price, so the position holds only {sym1}. "
+                f"Provide a {sym1} amount.",
+                status_code=422,
+            )
+        in_range = sa < sp < sb
+        if in_range and amount0 and not amount1:
+            # One-sided input for an in-range position: size from token0; token1 needed follows from the math.
+            liquidity = lpm.get_liquidity_for_amount0(sp, sb, amount0)
+            notes.append(f"Only {sym0} was given: liquidity is sized from it; the {sym1} it needs is in the deposit.")
+        elif in_range and amount1 and not amount0:
+            liquidity = lpm.get_liquidity_for_amount1(sa, sp, amount1)
+            notes.append(f"Only {sym1} was given: liquidity is sized from it; the {sym0} it needs is in the deposit.")
+        else:
+            liquidity = lpm.get_liquidity_for_amounts(sp, sa, sb, amount0 or 0, amount1 or 0)
     if liquidity <= 0:
         raise AppError(
             "zero_liquidity",
-            "These amounts produce zero liquidity for this range (for a range "
-            "entirely above/below the price, provide the token that range holds).",
+            "These amounts are too small to produce any liquidity for this range.",
             status_code=422,
         )
     if liquidity > lpm.MAX_UINT128:

@@ -417,7 +417,7 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
               </Field>
             </div>
             <p className="-mt-2 text-xs text-faint">
-              Liquidity is the maximum both amounts support; the deposit actually used is shown in the result.
+              For a range around the current price, one token is enough: HookLens sizes the position from it and shows the other token needed. With both, the scarcer one decides. Out-of-range positions hold one token only.
             </p>
             <Field id={f("moves")} label="Price moves (%)" hint="Hypothetical instant moves to compare against holding." error={err.moves?.message}>
               <input id={f("moves")} className={`${inputClass} font-mono`} autoComplete="off" aria-invalid={err.moves ? true : undefined} aria-describedby={desc("moves", true)} {...form.register("moves")} />

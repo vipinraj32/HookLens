@@ -29,6 +29,12 @@ vectors with `forge test --match-contract LpMathVectors`.
 - **Liquidity and amounts.** When amounts are given, liquidity is derived with
   `get_liquidity_for_amounts` at the pool's current `sqrtPriceX96`, which is read on chain at the
   pinned block. Deposit amounts use the rounding-up mint path.
+  - For an in-range position with only one amount, liquidity is sized from that token alone
+    (`get_liquidity_for_amount0` over `[price, upper)`, or `get_liquidity_for_amount1` over
+    `[lower, price)`). The deposit then shows how much of the other token is needed. With both
+    amounts, the scarcer side decides (the standard `min`).
+  - An out-of-range position with only the token it cannot hold is rejected with
+    `wrong_token_for_range`, and the message names the token the range needs.
 - **Range state.** `below-range` (all token0), `in-range` or `above-range` (all token1), from the
   current tick.
 - **Display values.** Human-readable values are produced with `Decimal` from exact `Fraction`s at
