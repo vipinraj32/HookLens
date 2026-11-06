@@ -108,8 +108,10 @@ The API's private `host:port` feeds the web service's `HOOKLENS_API_URL`, and `n
 
 ### Notes for both layouts
 
-- **Submodules.** The backend build needs `contracts/lib`. It stops with a clear message if Render
-  did not check out the submodules.
+- **Submodules.** Render does not check out the nested submodules (`v4-core` lives inside
+  `v4-periphery`). When `contracts/lib` is missing, the backend Dockerfile fetches the same pinned
+  commits itself (`FORGE_STD_REV`, `V4_PERIPHERY_REV`, nested submodules at depth 1).
+  `backend/tests/test_deploy_config.py` fails if those pins drift from the repository's gitlinks.
 - **One image.** The backend Dockerfile's final stage is `sim` (app + forge), and each service picks
   its process with `dockerCommand`.
 - **No shared disk.** If the API cannot find a report PDF on its own disk, it re-renders the PDF from

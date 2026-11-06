@@ -4,10 +4,14 @@
 #   docker build -f docker/backend.Dockerfile --target app .   # API + default Celery worker
 #   docker build -f docker/backend.Dockerfile --target sim .   # Foundry simulation worker
 #
-# contracts/lib must be populated first: git submodule update --init --recursive
+# contracts/lib comes from the git submodules when they are checked out. Hosts that do not check
+# out submodules recursively (e.g. Render) get the same pinned commits fetched during the build.
+# The pins below must equal `git ls-files -s contracts/lib` (backend/tests/test_deploy_config.py).
 
 ARG PYTHON_VERSION=3.12
 ARG FOUNDRY_VERSION=v1.9.0
+ARG FORGE_STD_REV=dc647cc030d9d65910d8f1172a0cde48d7106e32
+ARG V4_PERIPHERY_REV=c6e4754dab11bd38c6f08ac51c3c868569e93d64
 
 # ---------------------------------------------------------------- Foundry toolchain
 FROM debian:bookworm-slim AS foundry
@@ -22,12 +26,27 @@ RUN curl -fsSL https://foundry.paradigm.xyz | bash \
 
 # ---------------------------------------------------------------- compiled contracts
 FROM foundry AS contracts
+ARG FORGE_STD_REV
+ARG V4_PERIPHERY_REV
 WORKDIR /build/contracts
 COPY contracts/ ./
+# Fetch the pinned submodules (recursively) when the build context does not contain them.
+RUN set -eu; \
+    if [ ! -f lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol ] || [ ! -f lib/forge-std/src/Test.sol ]; then \
+      echo "contracts/lib not checked out: fetching pinned submodules"; \
+      rm -rf lib/forge-std lib/v4-periphery; \
+      fetch() { \
+        git clone --quiet --filter=blob:none "$1" "$2"; \
+        git -C "$2" -c advice.detachedHead=false checkout --quiet "$3"; \
+        git -C "$2" submodule update --init --recursive --depth 1 --quiet; \
+        rm -rf "$2/.git"; \
+      }; \
+      fetch https://github.com/foundry-rs/forge-std lib/forge-std "${FORGE_STD_REV}"; \
+      fetch https://github.com/Uniswap/v4-periphery lib/v4-periphery "${V4_PERIPHERY_REV}"; \
+    fi; \
+    test -f lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol
 # Compile once at image build time so workers never need to download solc at runtime.
-RUN test -f lib/v4-periphery/lib/v4-core/src/libraries/Hooks.sol \
-      || (echo "contracts/lib is empty: run 'git submodule update --init --recursive'" >&2; exit 1) \
- && mkdir -p /root/.svm \
+RUN mkdir -p /root/.svm \
  && /opt/foundry/bin/forge build \
  && rm -rf sim-out/runs broadcast
 
