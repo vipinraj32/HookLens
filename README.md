@@ -34,26 +34,122 @@ retryable infrastructure errors only, and a heartbeat reaper that catches worker
 ## Command-line scanner and GitHub Action
 
 The analyzers are also packaged as a local-first CLI, `hooklens`. It scans Solidity source in a
-local project or a public GitHub repository. No API key, database or server is needed. It writes a
-standalone HTML report, versioned JSON and SARIF for GitHub Code Scanning, and can gate CI on
-finding severity.
+local project or a public GitHub repository. Static scans need no API key, database, server,
+Foundry or RPC endpoint; at most, a `solc` binary is downloaded. It uses the same analysis engine
+as the web app.
+
+### Install
 
 ```bash
 pip install "hooklens @ git+https://github.com/vipinraj32/HookLens#subdirectory=packages/hooklens"
-
-hooklens scan ./my-hook-project --local --html report.html
-hooklens scan https://github.com/uniswapfoundation/v4-template --html report.html
-hooklens scan . --json report.json --sarif report.sarif --fail-on high
-hooklens init --github-action        # hooklens.toml + .github/workflows/hooklens.yml
+hooklens --help
 ```
 
-In a workflow, use the composite action at the repository root (`uses: vipinraj32/HookLens@main`).
-It runs the same CLI, writes the job summary, uploads SARIF (skipped for fork PRs) and the
-reports, and can comment on the PR. `hooklens lab` runs the Foundry/Anvil execution scenarios
-against a deployed hook through a running HookLens server.
+> The PyPI name `hooklens` belongs to an **unrelated project**, so `pip install hooklens` installs
+> the wrong package. Install from Git as shown, from a checkout (`pip install ./packages/hooklens`),
+> or from a release wheel.
 
-The PyPI name `hooklens` belongs to an unrelated project, so install from Git as shown above. See
-[docs/cli.md](docs/cli.md) for configuration, report formats, exit codes and limitations.
+### Use it
+
+```bash
+# A local Foundry/Hardhat project (or a subdirectory of one)
+hooklens scan ./my-hook-project --local --html report.html
+
+# A public GitHub repository: cloned into a temp dir, nothing in it is executed, then deleted
+hooklens scan https://github.com/uniswapfoundation/v4-template --html report.html
+
+# CI style: machine-readable reports and a severity gate
+hooklens scan . --json report.json --sarif report.sarif --fail-on high
+
+hooklens init --github-action   # writes hooklens.toml and .github/workflows/hooklens.yml
+hooklens rules                  # lists every rule id
+hooklens scan . -v              # also prints informational findings
+```
+
+Open `report.html` in a browser. It is a single file and works offline.
+
+**In GitHub Actions**, use the composite action at the root of this repository:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  hooklens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: vipinraj32/HookLens@main   # pin a tag or commit SHA once one is published
+        with:
+          fail-on: high
+          comment-on-pr: false
+```
+
+Each run produces:
+- a job summary;
+- findings in **Security → Code scanning** (SARIF);
+- the HTML, JSON and SARIF reports as an artifact;
+- optionally, a single PR comment that is updated on every run.
+
+For pull requests from forks, the SARIF upload and the PR comment are skipped automatically. A
+full example is in [examples/github-actions/hooklens.yml](examples/github-actions/hooklens.yml).
+
+**Execution testing.** `hooklens lab --chain 31337 --hook 0x… --json lab.json` runs the
+Foundry/Anvil scenarios (withdrawal failure, oracle failure, fee escalation, admin and upgrade,
+accounting, ordering) against a *deployed* hook. It goes through a running HookLens server with
+`forge` and an RPC endpoint. Results are per-scenario run statuses for one fork at one block.
+
+### What it tells you
+
+**Contracts.** Each compiled contract is classified as `hook`, `candidate`, `abstract-hook`,
+`mock`, `interface`, `library` or `not-a-hook`, with a confidence level and the reasons. The
+callbacks it implements are listed too. Only hooks and candidates are analysed by default.
+
+**Findings.** Each finding has:
+
+| Field | Example |
+|---|---|
+| Stable id and rule | `HL-…`, `HL.WDR.withdrawal_revert_conditions` |
+| Severity | critical / high / medium / low / informational (deterministic, rule-based) |
+| Location | `src/MyHook.sol:57`, contract and function |
+| Description | "1 revert condition(s) reachable from beforeRemoveLiquidity: `block.timestamp < unlockTime`" |
+| Evidence | The source excerpt and line range that triggered it |
+| LP implications and mitigations | What it can mean for liquidity providers, and what to check |
+| Confidence and basis | How certain the rule is, and what it rests on (e.g. `source-ast`) |
+
+The checks cover:
+- **Withdrawal** blockers (pauses, locks, conditions that revert liquidity removal).
+- **Oracle** dependence, and whether the oracle address can be replaced.
+- **Dynamic fees** controlled by the hook.
+- **Access control**: privileged state used inside callbacks, `tx.origin`.
+- **Upgradeability**: proxies, upgrade functions, unguarded initializers.
+- **External calls** made from callbacks.
+- **Custom accounting** and return-delta permissions.
+- **Permission problems**: invalid sets, or callbacks that are declared but not implemented.
+
+**Scan details.** The scan status (`completed`, `partial`, `failed` or `no-hooks`), the compiler
+version and settings, skipped files, and a scope-and-limitations statement.
+
+**Exit codes**:
+
+| Code | Meaning |
+|---|---|
+| 0 | OK |
+| 1 | Findings at or above `--fail-on` |
+| 2 | Config or usage error |
+| 3 | Source error (path or repository) |
+| 4 | Analysis error (imports, compiler, partial scan) |
+| 5 | Report error |
+
+A scanner error is never reported as a security result, and vice versa.
+
+> Findings are **static indicators that need review, not confirmed exploits**. A report with no
+> findings does **not** mean a hook is safe. A static scan reads source at one commit. It does not
+> know the deployed address, the on-chain owner or the oracle state, and it executes nothing.
+
+See [docs/cli.md](docs/cli.md) for configuration (`hooklens.toml`), every option, report formats
+and methodology.
 
 ## Supported chains
 
@@ -171,6 +267,7 @@ scripts/    dev-chain.sh
 - [Deployment](docs/deployment.md)
 - [Limitations](docs/limitations.md)
 - [Build feedback](FEEDBACK.md)
+- [Contributor guide for AI assistants](CLAUDE.md)
 
 ## License
 
