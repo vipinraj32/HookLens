@@ -1,0 +1,16 @@
+.git
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+backend/.venv
+backend/hooklens.db*
+backend/var
+backend/.env
+.env
+frontend
+contracts/out
+contracts/cache
+contracts/broadcast
+contracts/sim-out/runs
+contracts/deployments/*.json

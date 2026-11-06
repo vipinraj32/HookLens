@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --color-bg: oklch(0.155 0.012 260);
+  --color-surface: oklch(0.195 0.014 260);
+  --color-surface-2: oklch(0.235 0.016 260);
+  --color-line: oklch(0.3 0.016 260);
+  --color-fg: oklch(0.95 0.005 260);
+  --color-muted: oklch(0.72 0.015 260);
+  --color-faint: oklch(0.58 0.015 260);
+  --color-accent: oklch(0.8 0.13 195);
+  --color-accent-strong: oklch(0.72 0.14 195);
+
+  --color-sev-critical: oklch(0.66 0.22 20);
+  --color-sev-high: oklch(0.72 0.18 45);
+  --color-sev-medium: oklch(0.82 0.15 85);
+  --color-sev-low: oklch(0.78 0.1 230);
+  --color-sev-info: oklch(0.72 0.02 260);
+  --color-ok: oklch(0.78 0.15 155);
+  --color-bad: oklch(0.68 0.2 25);
+  --color-warn: oklch(0.82 0.15 85);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--color-accent) 35%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Form validation feedback only after the user has interacted with a field. */
+.field-input:user-invalid {
+  border-color: var(--color-bad);
+}
+.field:has(.field-input:user-invalid) .field-error {
+  display: block;
+}
+
+/* ---------- Navigation drawer (mobile) ---------- */
+.Drawer {
+  --drawer-width: min(18rem, 80dvw);
+  --drawer-backdrop: 0;
+  width: auto;
+  height: auto;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.Drawer::backdrop {
+  background: #000;
+  opacity: calc(var(--drawer-backdrop) / 1.6);
+}
+.Drawer-scroller {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--drawer-width) 100%;
+  overflow-x: scroll;
+  overscroll-behavior: none;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  height: 100svh;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .Drawer-scroller {
+    scroll-behavior: smooth;
+  }
+}
+.Drawer-scroller::after {
+  content: "";
+  scroll-snap-align: end;
+  scroll-initial-target: nearest;
+}
+.Drawer-sheet {
+  height: 100svh;
+  overflow-y: auto;
+  scroll-snap-align: start;
+  scrollbar-width: none;
+}
+@supports (animation-timeline: scroll()) {
+  .Drawer {
+    timeline-scope: --drawer-fade;
+    animation: fade-drawer-backdrop linear both;
+    animation-timeline: --drawer-fade;
+  }
+  .Drawer-scroller {
+    scroll-timeline: --drawer-fade x;
+  }
+  @property --drawer-backdrop {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0;
+  }
+  @keyframes fade-drawer-backdrop {
+    0% {
+      --drawer-backdrop: 1;
+    }
+    100% {
+      --drawer-backdrop: 0;
+    }
+  }
+}

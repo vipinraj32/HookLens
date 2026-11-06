@@ -1,0 +1,44 @@
+# HookLens Foundry project.
+# Pinned dependencies (git submodules):
+#   lib/forge-std            (see `git submodule status`)
+#   lib/v4-periphery         c6e4754dab11bd38c6f08ac51c3c868569e93d64
+#   lib/v4-periphery/lib/v4-core 59d3ecf53afa9264a16bba0e38f4c5d2231f80bc
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+build_info = true
+extra_output = ["storageLayout", "metadata"]
+ffi = false
+fs_permissions = [
+  { access = "read-write", path = "./sim-out" },
+  { access = "read-write", path = "./deployments" },
+  { access = "read", path = "./out" },
+]
+
+[fuzz]
+runs = 256
+seed = "0x1d0c"
+
+[invariant]
+runs = 32
+depth = 24
+fail_on_revert = false
+
+[profile.ci.fuzz]
+runs = 1024
+
+[lint]
+lint_on_build = false
+
+# Fork endpoint alias used by the HookLens backend. The URL is supplied through the
+# HOOKLENS_FORK_RPC_URL environment variable so it never appears on a command line.
+[rpc_endpoints]
+hooklens_fork = "${HOOKLENS_FORK_RPC_URL}"

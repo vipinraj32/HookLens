@@ -1,0 +1,189 @@
+# HookLens — full stack.
+#
+#   cp .env.example .env            # then set HOOKLENS_WORKSPACE_SECRET and POSTGRES_PASSWORD
+#   git submodule update --init --recursive
+#   docker compose up --build                       # mainnet only (needs HOOKLENS_MAINNET_RPC_URL)
+#   docker compose --profile dev-chain up --build   # + local Anvil with HookLens fixture hooks
+#
+# Open http://localhost:3000. Only the frontend port is published; the API is reached through
+# the frontend's same-origin /api proxy.
+
+x-backend-env: &backend-env
+  HOOKLENS_ENVIRONMENT: production
+  HOOKLENS_DATABASE_URL: postgresql+psycopg://hooklens:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/hooklens
+  HOOKLENS_REDIS_URL: redis://redis:6379/0
+  HOOKLENS_JOB_BACKEND: celery
+  HOOKLENS_AUTO_MIGRATE: "false"
+  HOOKLENS_WORKSPACE_SECRET: ${HOOKLENS_WORKSPACE_SECRET:?set HOOKLENS_WORKSPACE_SECRET in .env}
+  HOOKLENS_CORS_ORIGINS: ${HOOKLENS_CORS_ORIGINS:-http://localhost:3000}
+  HOOKLENS_MAINNET_RPC_URL: ${HOOKLENS_MAINNET_RPC_URL:-}
+  HOOKLENS_ETHERSCAN_API_KEY: ${HOOKLENS_ETHERSCAN_API_KEY:-}
+  HOOKLENS_ANTHROPIC_API_KEY: ${HOOKLENS_ANTHROPIC_API_KEY:-}
+  HOOKLENS_AI_MODEL: ${HOOKLENS_AI_MODEL:-claude-opus-5-5}
+  HOOKLENS_ENABLE_LOCAL_CHAIN: ${HOOKLENS_ENABLE_LOCAL_CHAIN:-false}
+  HOOKLENS_LOCAL_RPC_URL: http://anvil:8545
+  HOOKLENS_LOG_LEVEL: ${HOOKLENS_LOG_LEVEL:-INFO}
+
+x-backend: &backend
+  image: hooklens-backend:local
+  build:
+    context: .
+    dockerfile: docker/backend.Dockerfile
+    target: app
+  environment: *backend-env
+  volumes:
+    - reports:/app/backend/var/reports
+    - deployments:/app/contracts/deployments
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hooklens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hooklens
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hooklens -d hooklens"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [internal, egress]
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "default", "--concurrency=2", "--loglevel=INFO"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [internal, egress]
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "-s", "/tmp/celerybeat-schedule", "--loglevel=INFO"]
+    depends_on:
+      redis: { condition: service_healthy }
+    networks: [internal]
+
+  # Runs Foundry against user-selected contracts on a fork. Hardened: non-root, all
+  # capabilities dropped, no privilege escalation, FFI disabled, bounded CPU/memory/PIDs.
+  # It still needs egress to the configured RPC endpoint for mainnet forks; compose cannot
+  # restrict egress by hostname — see docs/threat-model.md.
+  sim-worker:
+    <<: *backend
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: sim
+    image: hooklens-sim:local
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "-Q", "sim", "--concurrency=1", "--loglevel=INFO"]
+    environment:
+      <<: *backend-env
+      FOUNDRY_FFI: "false"
+    volumes:
+      - deployments:/app/contracts/deployments
+      - simruns:/app/contracts/sim-out
+    tmpfs: ["/tmp:size=256m"]
+    pids_limit: 512
+    mem_limit: 4g
+    cpus: 2
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [internal, egress]
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: ../docker/frontend.Dockerfile
+      args:
+        HOOKLENS_API_URL: http://api:8000
+    image: hooklens-frontend:local
+    ports: ["${HOOKLENS_WEB_PORT:-3000}:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    networks: [internal, egress]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- dev-chain profile
+  anvil:
+    profiles: [dev-chain]
+    image: hooklens-sim:local
+    command: ["anvil", "--host", "0.0.0.0", "--port", "8545", "--code-size-limit", "50000"]
+    healthcheck:
+      test: ["CMD", "cast", "chain-id", "--rpc-url", "http://127.0.0.1:8545"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [internal]
+
+  # Deploys the deliberately designed fixture hooks with Anvil's PUBLIC dev key (chain 31337 only).
+  fixtures:
+    profiles: [dev-chain]
+    image: hooklens-sim:local
+    command:
+      - forge
+      - script
+      - script/DeployFixtures.s.sol:DeployFixtures
+      - --rpc-url
+      - http://anvil:8545
+      - --broadcast
+      - --slow
+    working_dir: /app/contracts
+    volumes: ["deployments:/app/contracts/deployments"]
+    depends_on:
+      anvil: { condition: service_healthy }
+    networks: [internal]
+    restart: "no"
+
+networks:
+  internal:
+    internal: true
+  egress: {}
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  reports: {}
+  deployments: {}
+  simruns: {}

@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_VERSION: v1.9.0
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  backend:
+    name: Backend (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+        # v4-core is needed so tests/test_permissions_bytecode.py checks the generated
+        # permission constants against the vendored Hooks.sol instead of skipping.
+        with: { submodules: recursive }
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+      # Anvil/forge-marked tests skip here; they run in the integration job.
+      - run: uv run pytest -q
+
+  contracts:
+    name: Contracts (forge build/test)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: contracts } }
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: foundry-rs/foundry-toolchain@v1
+        with: { version: "${{ env.FOUNDRY_VERSION }}" }
+      - run: forge build --sizes
+      - run: forge test -vvv
+        env: { FOUNDRY_PROFILE: ci }
+
+  frontend:
+    name: Frontend (lint, typecheck, vitest, build)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  integration:
+    name: Integration + E2E (Anvil, backend, frontend)
+    runs-on: ubuntu-latest
+    needs: [backend, contracts, frontend]
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: foundry-rs/foundry-toolchain@v1
+        with: { version: "${{ env.FOUNDRY_VERSION }}" }
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build contracts
+        working-directory: contracts
+        run: forge build
+      - name: Start Anvil
+        run: |
+          anvil --port 8545 --code-size-limit 50000 --silent > /tmp/anvil.log 2>&1 &
+          echo "ANVIL_PID=$!" >> "$GITHUB_ENV"
+      - name: Deploy fixture hooks (Anvil public dev key, chain 31337 only)
+        run: bash scripts/dev-chain.sh --deploy-only
+
+      - name: Backend integration tests (fail if Anvil/forge are unavailable)
+        working-directory: backend
+        env: { HL_TEST_ANVIL: "1" }
+        run: |
+          uv sync --frozen
+          uv run pytest -q -m "anvil or forge"
+
+      - name: Build frontend
+        working-directory: frontend
+        env: { HOOKLENS_API_URL: "http://127.0.0.1:8000" }
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Playwright E2E
+        working-directory: frontend
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results
+          path: |
+            frontend/e2e-results
+            frontend/playwright-report
+            /tmp/anvil.log
+          retention-days: 7
+
+  docker:
+    name: Docker (compose config + image builds)
+    runs-on: ubuntu-latest
+    needs: [backend, contracts, frontend]
+    env:
+      # Throwaway values so `compose config` can interpolate required variables. Not secrets.
+      HOOKLENS_WORKSPACE_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
+      POSTGRES_PASSWORD: ci-only
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: docker/setup-buildx-action@v3
+      - run: docker compose config -q
+      - run: docker compose --profile dev-chain config -q
+      - name: Build images
+        run: docker compose build api sim-worker frontend
