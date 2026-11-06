@@ -56,11 +56,45 @@ The frontend proxies to `http://api:8000`. That value is baked in at build time 
 
 ## Render
 
-[`render.yaml`](../render.yaml) is a Render Blueprint for the same topology. It has **not** been
-deployed from this repository yet, so treat the first Blueprint sync as a test and check the
-build logs.
+There are two Blueprints. Neither has been deployed from this repository yet, so treat the first
+sync as a test and check the build logs.
 
-| Render resource | Type | Plan in the Blueprint | Compose equivalent |
+| File | Layout | Cost |
+|---|---|---|
+| [`render.yaml`](../render.yaml) | Two free web services (`hooklens-api`, `hooklens-web`) and free Postgres. Jobs run in-process (`HOOKLENS_JOB_BACKEND=local`) | Free |
+| [`render.paid.yaml`](../render.paid.yaml) | Public web, private API with a pre-deploy migration, Celery worker + beat, Foundry sim worker, Key Value, Postgres | Paid (set the Blueprint path to `render.paid.yaml`) |
+
+### Free plan steps (`render.yaml`)
+
+1. In the Render dashboard, choose **New → Blueprint**, connect the GitHub repository and select
+   `main`.
+2. Enter the `sync: false` values yourself; never commit them:
+   - `hooklens-api`: `HOOKLENS_MAINNET_RPC_URL` (and optionally `HOOKLENS_SEPOLIA_RPC_URL`,
+     `HOOKLENS_ETHERSCAN_API_KEY`, `HOOKLENS_ANTHROPIC_API_KEY`). Leave a key blank to disable
+     that feature.
+   - `hooklens-web`: `HOOKLENS_API_URL` = the API's public URL, normally
+     `https://hooklens-api.onrender.com`. If Render gives the API a different URL, put that one
+     here and redeploy `hooklens-web`, because the value is baked in at build time.
+3. Apply. When both builds finish, open the `hooklens-web` URL and check
+   `/api/v1/health/worker`.
+
+### Free plan limits
+
+- Free instances sleep after about 15 minutes without traffic, and the first request after that
+  waits while the instance starts. A job that is running when the API instance stops is marked
+  failed on the next start. Run it again.
+- Free Postgres expires 30 days after creation, unless you upgrade it.
+- The API has 512 MB of memory and runs one job at a time (`HOOKLENS_LOCAL_JOB_WORKERS=1`).
+  Scans should fit. Foundry simulations on a mainnet fork may run out of memory or hit the
+  timeout. The lab then reports an infrastructure error, which says nothing about the hook.
+- Free web services cannot receive private-network traffic, so the API is public. It enforces
+  workspace tokens and rate limits. The UI still proxies to it server-side.
+- Migrations run on API startup (`HOOKLENS_AUTO_MIGRATE=true`), because pre-deploy commands need a
+  paid plan.
+
+### Paid layout (`render.paid.yaml`)
+
+| Render resource | Type | Plan | Compose equivalent |
 |---|---|---|---|
 | `hooklens-web` | Web service (public) | `0.5c-512mb` | `frontend` |
 | `hooklens-api` | Private service, `preDeployCommand: alembic upgrade head` | `0.5c-512mb` | `api` + `migrate` |
@@ -69,38 +103,19 @@ build logs.
 | `hooklens-redis` | Key Value, `noeviction`, private only | `256mb` | `redis` |
 | `hooklens-db` | Postgres 16, private only | `0.1c-256mb` | `postgres` |
 
-### Steps
+The API's private `host:port` feeds the web service's `HOOKLENS_API_URL`, and `next.config.ts` adds
+`http://`. Enter the RPC/Etherscan/Anthropic keys for the API and the workers when Render asks.
 
-1. Push the repository to GitHub (or GitLab) with the submodules committed as submodule
-   references. The backend build fails early with a clear message if `contracts/lib` was not
-   checked out.
-2. In the Render dashboard, choose **New → Blueprint**, connect the repository and select `main`.
-3. Render asks for the `sync: false` values for each backend service. Enter them in the dashboard;
-   never commit them:
-   - `HOOKLENS_MAINNET_RPC_URL` / `HOOKLENS_SEPOLIA_RPC_URL` (API, worker and sim worker). Leave
-     a chain blank to disable it.
-   - `HOOKLENS_ETHERSCAN_API_KEY` and `HOOKLENS_ANTHROPIC_API_KEY` (API and worker), both
-     optional.
-4. Apply the Blueprint. Open the `hooklens-web` URL, then check `/api/v1/health/worker`. It should
-   report Celery reachable, forge available, and the chains you configured.
+### Notes for both layouts
 
-### Notes
-
-- **Cost.** Private services and background workers have no free plan on Render, and the
-  pre-deploy command needs a paid plan, so this Blueprint is a paid deployment. Check
-  Render's pricing before applying, and lower the plans if you need to. The sim worker needs
-  enough memory for `forge` on a mainnet fork.
-- **Private API.** Only `hooklens-web` is public. Its `HOOKLENS_API_URL` comes from the
-  API's private `host:port`. `next.config.ts` adds `http://`, and the value is used at build
-  time (Render passes environment variables as Docker build args).
-- **One image, three processes.** The backend Dockerfile's final stage is `sim`, so the API and
-  both workers build it and select their process with `dockerCommand`.
-- **No shared disk.** Report PDFs are rendered by the worker. If the API cannot find the file on
-  its own disk, it re-renders the PDF from the stored, hashed report content. Simulation run
-  outputs are read by the sim worker that wrote them.
+- **Submodules.** The backend build needs `contracts/lib`. It stops with a clear message if Render
+  did not check out the submodules.
+- **One image.** The backend Dockerfile's final stage is `sim` (app + forge), and each service picks
+  its process with `dockerCommand`.
+- **No shared disk.** If the API cannot find a report PDF on its own disk, it re-renders the PDF from
+  the stored, hashed report content.
 - **Database URL.** Render's `postgresql://` connection string is rewritten to the
   `postgresql+psycopg://` driver automatically.
-- **No dev chain.** `HOOKLENS_ENABLE_LOCAL_CHAIN=false`. The Anvil fixtures are a local-only
-  profile.
-- **Egress.** Render does not restrict outbound traffic by hostname. The threat-model note
-  about `sim-worker` egress applies.
+- **No dev chain.** `HOOKLENS_ENABLE_LOCAL_CHAIN=false`.
+- **Egress.** Render does not restrict outbound traffic by hostname. The threat-model note about
+  simulation egress applies.
