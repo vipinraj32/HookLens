@@ -5,7 +5,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import type { PriceScenario } from "@/lib/api/models";
 import { groupDecimal } from "@/lib/format";
 
-// Validated with the dataviz palette checker against the dark surface (#1e2129):
+// Validated with the dataviz palette checker against the dark card surface (#150f1f):
 // CVD ΔE 26.8, normal-vision ΔE 31.8, both ≥ 3:1 contrast. Hold is also dashed so the
 // two series never depend on colour alone.
 const LP = "#3987e5";

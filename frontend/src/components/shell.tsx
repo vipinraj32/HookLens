@@ -1,28 +1,76 @@
 "use client";
 
-import { Activity, FileSearch, Gauge, LayoutDashboard, Menu, ScanSearch, X } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChevronRight,
+  FileSearch,
+  FileText,
+  FlaskConical,
+  Gauge,
+  LayoutDashboard,
+  Menu,
+  ScanSearch,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, type ReactNode } from "react";
 
-import { useWorkerHealth } from "@/lib/api/hooks";
+import { useChains, useWorkerHealth } from "@/lib/api/hooks";
 import { cn } from "@/lib/format";
+import { useNetwork } from "@/lib/network";
 
-const NAV = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/app/scan", label: "New scan", icon: ScanSearch },
-  { href: "/app/lp", label: "LP exposure", icon: Gauge },
-  { href: "/app/evidence", label: "Evidence explorer", icon: FileSearch },
+const DOCS = "https://github.com/vipinraj32/HookLens/tree/main/docs";
+
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; match: (p: string) => boolean };
+
+const NAV: NavItem[] = [
+  { href: "/app", label: "Overview", icon: LayoutDashboard, match: (p) => p === "/app" },
+  { href: "/app/scan", label: "Hook Scanner", icon: ScanSearch, match: (p) => p === "/app/scan" },
+  {
+    href: "/app/scans",
+    label: "Hook Intelligence",
+    icon: ShieldAlert,
+    match: (p) => p === "/app/scans" || (p.startsWith("/app/scans/") && !p.endsWith("/lab")),
+  },
+  {
+    href: "/app/lab",
+    label: "Adversarial Lab",
+    icon: FlaskConical,
+    match: (p) => p === "/app/lab" || /^\/app\/scans\/[^/]+\/lab$/.test(p),
+  },
+  { href: "/app/lp", label: "LP Exposure", icon: Gauge, match: (p) => p.startsWith("/app/lp") },
+  { href: "/app/reports", label: "Reports", icon: FileText, match: (p) => p.startsWith("/app/reports") },
+  { href: "/app/evidence", label: "Evidence", icon: FileSearch, match: (p) => p.startsWith("/app/evidence") },
 ];
 
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2 px-2 text-fg">
-      <span aria-hidden="true" className="grid size-7 place-items-center rounded-md bg-accent/15 ring-1 ring-accent/40">
-        <span className="size-2.5 rounded-full bg-accent" />
+      <span aria-hidden="true" className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-accent to-violet">
+        <span className="size-2.5 rounded-full bg-bg" />
       </span>
       <span className="text-[15px] font-semibold tracking-tight">HookLens</span>
     </Link>
+  );
+}
+
+function DocsLink() {
+  return (
+    <li className="mt-2 border-t border-line pt-2">
+      <a
+        href={DOCS}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg"
+      >
+        <BookOpen aria-hidden="true" className="size-4" />
+        Documentation
+        <span className="sr-only">(opens GitHub)</span>
+      </a>
+    </li>
   );
 }
 
@@ -30,8 +78,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <ul className="flex flex-col gap-0.5">
-      {NAV.map(({ href, label, icon: Icon, exact }) => {
-        const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+      {NAV.map(({ href, label, icon: Icon, match }) => {
+        const active = match(pathname);
         return (
           <li key={href}>
             <Link
@@ -39,8 +87,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg",
-                active && "bg-surface-2 text-fg",
+                "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg",
+                active && "bg-accent/10 text-fg ring-1 ring-accent/30",
               )}
             >
               <Icon aria-hidden="true" className={cn("size-4", active && "text-accent")} />
@@ -49,6 +97,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           </li>
         );
       })}
+      <DocsLink />
     </ul>
   );
 }
@@ -58,12 +107,13 @@ function NavFallback() {
     <ul className="flex flex-col gap-0.5">
       {NAV.map(({ href, label, icon: Icon }) => (
         <li key={href}>
-          <Link href={href} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted hover:bg-surface-2">
+          <Link href={href} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2">
             <Icon aria-hidden="true" className="size-4" />
             {label}
           </Link>
         </li>
       ))}
+      <DocsLink />
     </ul>
   );
 }
@@ -106,13 +156,94 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <NavLinks onNavigate={onNavigate} />
         </Suspense>
       </nav>
-      <div className="mt-auto rounded-lg border border-line bg-bg/60 p-3">
+      <div className="mt-auto rounded-xl border border-line bg-bg/60 p-3">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-fg">
           <Activity aria-hidden="true" className="size-3.5 text-accent" /> System
         </p>
         <SystemStatus />
       </div>
     </div>
+  );
+}
+
+const CRUMB: Record<string, string> = {
+  scan: "Hook Scanner",
+  scans: "Hook Intelligence",
+  lab: "Adversarial Lab",
+  lp: "LP Exposure",
+  reports: "Reports",
+  evidence: "Evidence",
+};
+
+function Breadcrumbs() {
+  const pathname = usePathname();
+  const parts = pathname.split("/").filter(Boolean).slice(1); // drop "app"
+  const crumbs: { href: string; label: string }[] = [{ href: "/app", label: "Overview" }];
+  let href = "/app";
+  parts.forEach((seg, i) => {
+    href += `/${seg}`;
+    const prev = parts[i - 1];
+    if (prev === "scans") crumbs.push({ href, label: `Scan ${seg.slice(0, 8)}` });
+    else if (prev === "reports") crumbs.push({ href, label: `Report ${seg.slice(0, 8)}` });
+    else if (CRUMB[seg]) crumbs.push({ href, label: CRUMB[seg] });
+  });
+  return (
+    <nav aria-label="Breadcrumb" className="min-w-0">
+      <ol className="flex min-w-0 items-center gap-1 text-sm">
+        {crumbs.map((c, i) => {
+          const last = i === crumbs.length - 1;
+          return (
+            <li key={c.href} className="flex min-w-0 items-center gap-1">
+              {i > 0 ? <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-faint" /> : null}
+              {last ? (
+                <span aria-current="page" className="truncate text-fg">
+                  {c.label}
+                </span>
+              ) : (
+                <Link href={c.href} className="truncate text-muted hover:text-fg">
+                  {c.label}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/** Preferred network: filters lists and pre-selects the scanner. It never changes server RPC config. */
+function NetworkSelect() {
+  const chains = useChains();
+  const [network, setNetwork] = useNetwork();
+  const current = chains.data?.find((c) => c.chain_id === network);
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted">
+      <span className="sr-only sm:not-sr-only">Network</span>
+      <span className="relative">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute left-2.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full",
+            current ? (current.rpc_configured ? "bg-ok" : "bg-warn") : "bg-violet",
+          )}
+        />
+        <select
+          value={network ?? ""}
+          onChange={(e) => setNetwork(e.target.value ? Number(e.target.value) : null)}
+          disabled={!chains.data}
+          className="h-9 max-w-[9.5rem] rounded-lg border border-line bg-surface pl-6 pr-2 text-sm text-fg hover:border-violet/60 sm:max-w-none"
+        >
+          <option value="">All networks</option>
+          {chains.data?.map((c) => (
+            <option key={c.chain_id} value={c.chain_id}>
+              {c.name}
+              {c.rpc_configured ? "" : " (no RPC)"}
+            </option>
+          ))}
+        </select>
+      </span>
+    </label>
   );
 }
 
@@ -233,14 +364,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mainId = "app-main";
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-line bg-surface lg:block">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-line bg-surface/80 lg:block">
         <SidebarContent />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur lg:px-8">
           <MobileDrawer mainId={mainId} />
-          <Logo />
+          <span className="lg:hidden">
+            <Logo />
+          </span>
+          <span className="hidden min-w-0 flex-1 lg:block">
+            <Suspense fallback={null}>
+              <Breadcrumbs />
+            </Suspense>
+          </span>
+          <span className="ml-auto">
+            <NetworkSelect />
+          </span>
         </header>
+        <div className="border-b border-line px-4 py-2 lg:hidden">
+          <Suspense fallback={null}>
+            <Breadcrumbs />
+          </Suspense>
+        </div>
         <main id={mainId} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         <footer className="border-t border-line px-6 py-4 text-xs text-faint">
           HookLens presents deterministic analysis and fork-simulation results. It is not a security audit and does not

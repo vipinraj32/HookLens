@@ -3,11 +3,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { FileDown, FileSearch, FlaskConical, Gauge, X } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { FindingDetail } from "@/components/finding-detail";
 import { JobProgress } from "@/components/job-progress";
+import { PermissionMatrix } from "@/components/permission-matrix";
 import { Tab, TabPanel, Tabs, TabsList } from "@/components/tabs";
 import {
   Badge,
@@ -47,18 +48,29 @@ function SeveritySummary({ scan }: { scan: Scan }) {
   );
 }
 
-function FindingsPanel({ scan }: { scan: Scan }) {
+function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }) {
   const findings = useFindings(scan.id, isTerminal(scan.status));
   const [sev, setSev] = useState<string>("all");
   const [basis, setBasis] = useState<string>("all");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<string | null>(initial);
 
   const list = useMemo(() => {
     const items = [...(findings.data ?? [])].sort(
       (a, b) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9) || a.title.localeCompare(b.title),
     );
-    return items.filter((f) => (sev === "all" || f.severity === sev) && (basis === "all" || f.confidence_basis === basis));
-  }, [findings.data, sev, basis]);
+    const needle = q.trim().toLowerCase();
+    return items.filter(
+      (f) =>
+        (sev === "all" || f.severity === sev) &&
+        (basis === "all" || f.confidence_basis === basis) &&
+        (!needle ||
+          f.title.toLowerCase().includes(needle) ||
+          f.finding_id.toLowerCase().includes(needle) ||
+          f.rule_id.toLowerCase().includes(needle) ||
+          f.affected_functions.some((fn) => fn.toLowerCase().includes(needle))),
+    );
+  }, [findings.data, sev, basis, q]);
   const bases = useMemo(() => [...new Set((findings.data ?? []).map((f) => f.confidence_basis))], [findings.data]);
   const current: Finding | undefined = findings.data?.find((f) => f.finding_id === selected);
 
@@ -75,7 +87,7 @@ function FindingsPanel({ scan }: { scan: Scan }) {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           <label className="flex items-center gap-2 text-xs text-muted">
@@ -100,6 +112,14 @@ function FindingsPanel({ scan }: { scan: Scan }) {
               ))}
             </select>
           </label>
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search title, ID, rule, function…"
+            aria-label="Search findings"
+            className="h-8 min-w-48 flex-1 rounded-md border border-line bg-bg px-2 text-sm text-fg"
+          />
           <span className="ml-auto self-center text-xs text-faint">
             {list.length} of {findings.data.length}
           </span>
@@ -148,53 +168,6 @@ function FindingsPanel({ scan }: { scan: Scan }) {
           </Card>
         )}
       </div>
-    </div>
-  );
-}
-
-function PermissionsPanel({ scan }: { scan: Scan }) {
-  const p = scan.permissions;
-  if (!p) return <EmptyState title="Permissions unavailable">The scan did not reach permission decoding.</EmptyState>;
-  return (
-    <div className="flex flex-col gap-4">
-      <Notice>{p.note}</Notice>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-muted">
-          Address bits <span className="font-mono text-fg">{p.bits}</span>
-        </span>
-        {p.can_affect_withdrawals ? <Badge className="border-warn/40 text-warn">can affect withdrawals</Badge> : null}
-        {p.return_delta_flags?.length ? <Badge className="border-warn/40 text-warn">return-delta enabled</Badge> : null}
-      </div>
-      <div className="overflow-x-auto rounded-lg border border-line">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="bg-surface text-left text-xs uppercase tracking-wide text-faint">
-            <tr>
-              <th scope="col" className="px-4 py-2 font-medium">Bit</th>
-              <th scope="col" className="px-3 py-2 font-medium">Flag</th>
-              <th scope="col" className="px-3 py-2 font-medium">Enabled</th>
-              <th scope="col" className="px-4 py-2 font-medium">What it allows</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(p.flags ?? []).map((f) => (
-              <tr key={f.flag} className={cn("border-t border-line/60", !f.enabled && "text-faint")}>
-                <td className="px-4 py-2 font-mono text-xs">{f.bit}</td>
-                <td className="px-3 py-2 font-mono text-xs">{f.flag}</td>
-                <td className="px-3 py-2">
-                  {f.enabled ? <Badge className="border-accent/50 text-accent">enabled</Badge> : <span className="text-xs">off</span>}
-                </td>
-                <td className={cn("px-4 py-2 text-xs", f.enabled ? "text-muted" : "")}>{f.explanation ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {p.v4_core_commit ? (
-        <p className="text-xs text-faint">
-          Decoded with v4-core <span className="font-mono">{p.v4_core_commit.slice(0, 12)}</span> · Hooks.sol sha256{" "}
-          <span className="font-mono">{p.hooks_sol_sha256?.slice(0, 16)}…</span>
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -259,7 +232,7 @@ function PoolsPanel({ scan }: { scan: Scan }) {
           No initialized pool using this hook was found in the scanned range. Simulations and LP exposure need a pool.
         </EmptyState>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {scan.pools.map((p) => (
             <PoolCard key={p.pool_id} pool={p} scanId={scan.id} />
           ))}
@@ -274,7 +247,7 @@ function ContractPanel({ scan }: { scan: Scan }) {
   const src = scan.analysis.source as { contract_path?: string; file_count?: number; provider?: string } | null | undefined;
   if (!c) return <EmptyState title="Contract not resolved" />;
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader title="Identity" />
         <CardBody>
@@ -409,6 +382,11 @@ export function ScanView() {
   const qc = useQueryClient();
   const scan = useScan(id);
   const chains = useChains();
+  const params = useSearchParams();
+  const router = useRouter();
+  const initialFinding = params.get("finding");
+  const tab = params.get("tab") ?? "findings";
+  const findings = useFindings(id, scan.data ? isTerminal(scan.data.status) : false);
   const running = scan.data ? !isTerminal(scan.data.status) : false;
   const stream = useJobStream(running ? scan.data?.job_id : null, () => {
     void qc.invalidateQueries({ queryKey: keys.scan(id) });
@@ -485,20 +463,20 @@ export function ScanView() {
         <SeveritySummary scan={s} />
       </div>
 
-      <Tabs defaultValue="findings">
+      <Tabs value={tab} onValueChange={(v) => router.replace(`/app/scans/${s.id}?tab=${v}`, { scroll: false })}>
         <TabsList aria-label="Scan sections">
           <Tab value="findings">Findings{s.summary.finding_count !== undefined ? ` (${s.summary.finding_count})` : ""}</Tab>
-          <Tab value="permissions">Permissions</Tab>
+          <Tab value="permissions">Permission matrix</Tab>
           <Tab value="pools">Pools ({s.pools.length})</Tab>
           <Tab value="contract">Contract</Tab>
           <Tab value="analyzers">Analyzers</Tab>
           <Tab value="reports">Reports</Tab>
         </TabsList>
         <TabPanel value="findings">
-          <FindingsPanel scan={s} />
+          <FindingsPanel key={initialFinding ?? ""} scan={s} initial={initialFinding} />
         </TabPanel>
         <TabPanel value="permissions">
-          <PermissionsPanel scan={s} />
+          <PermissionMatrix scan={s} findings={findings.data} />
         </TabPanel>
         <TabPanel value="pools">
           <PoolsPanel scan={s} />

@@ -6,7 +6,7 @@ const SHOTS = process.env.E2E_SCREENSHOT_DIR;
 
 test("mobile navigation drawer opens, navigates and dismisses", async ({ page }, info) => {
   await page.goto("/app");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   const open = page.getByRole("button", { name: "Open navigation" });
   await expect(open).toHaveAttribute("aria-expanded", "false");
   await open.click();
@@ -17,7 +17,7 @@ test("mobile navigation drawer opens, navigates and dismisses", async ({ page },
   await expect(open).toHaveAttribute("aria-expanded", "false");
 
   await open.click();
-  await page.getByRole("navigation", { name: "Mobile" }).getByRole("link", { name: "Evidence explorer" }).click();
+  await page.getByRole("navigation", { name: "Mobile" }).getByRole("link", { name: "Evidence", exact: true }).click();
   await page.waitForURL(/\/app\/evidence$/);
   await expect(page.getByRole("heading", { name: "Evidence", exact: true })).toBeVisible();
   await expect(open).toHaveAttribute("aria-expanded", "false");

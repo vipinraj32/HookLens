@@ -25,6 +25,7 @@ import {
   inputClass,
 } from "@/components/ui";
 import { isTerminal, useCompare, useScan, useScans, useSimulations, type CompareBody } from "@/lib/api/hooks";
+import { RangeBar } from "@/components/range-bar";
 import type { Compare, Pool, Tagged } from "@/lib/api/models";
 import { formatDate, groupDecimal, humanize } from "@/lib/format";
 
@@ -90,6 +91,8 @@ function Results({ r }: { r: Compare }) {
   const t1 = r.pool.token1.symbol ?? "token1";
   const b = r.baseline;
   const fx = r.simulation_effects;
+  const label = (t: Tagged | undefined) =>
+    t && t.value !== null && typeof t.value === "string" && /^-?\d/.test(t.value) ? `${groupDecimal(t.value, 6)} ${t1}` : undefined;
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -99,7 +102,15 @@ function Results({ r }: { r: Compare }) {
           actions={<Badge className="font-mono text-faint">{r.calculation_version}</Badge>}
         />
         <CardBody className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <RangeBar
+            tickLower={r.position.tick_lower}
+            tickUpper={r.position.tick_upper}
+            currentTick={r.pool.state.tick}
+            lowerLabel={label(b.price_lower)}
+            upperLabel={label(b.price_upper)}
+            currentLabel={label(b.price) ? `price ${label(b.price)} per ${t0}` : undefined}
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <TaggedValue label="Range state" t={b.range_state} />
             <TaggedValue label={`Price (${t1} per ${t0})`} t={b.price} />
             <TaggedValue label={`Price (${t0} per ${t1})`} t={b.price_inverted} />
@@ -219,7 +230,7 @@ function Results({ r }: { r: Compare }) {
                   Removal succeeded under: {fx.withdrawal_succeeded_under.map(humanize).join(", ")}
                 </p>
               ) : null}
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                 {fx.fee ? (
                   <div className="rounded-lg border border-line p-3 text-sm">
                     <p className="text-xs uppercase tracking-wide text-faint">LP fee</p>
@@ -326,7 +337,7 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
   const state = pool?.state;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
       <Card className="h-fit">
         <CardHeader title="Position" description="Every amount is computed with exact integer v4 math." />
         <CardBody>

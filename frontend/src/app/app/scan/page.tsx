@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -15,6 +15,7 @@ import { api, errorMessage } from "@/lib/api/client";
 import { keys, useChains, useCreateScan } from "@/lib/api/hooks";
 import { useJobStream } from "@/lib/api/jobs";
 import { Permissions } from "@/lib/api/models";
+import { useNetwork } from "@/lib/network";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -90,6 +91,12 @@ export default function ScanPage() {
     mode: "onTouched",
     defaultValues: { chain_id: "31337", hook_address: "", pool_id: "", block_number: "", discover_pools: true },
   });
+  const [network] = useNetwork();
+  // Pre-select the header's network once chains are known, unless the user already picked one.
+  useEffect(() => {
+    if (network === null || form.formState.dirtyFields.chain_id) return;
+    if (chains.data?.some((c) => c.chain_id === network)) form.setValue("chain_id", String(network));
+  }, [network, chains.data, form]);
   const address = useWatch({ control: form.control, name: "hook_address" }) ?? "";
   const chainId = Number(useWatch({ control: form.control, name: "chain_id" }));
   const chain = chains.data?.find((c) => c.chain_id === chainId);
@@ -126,11 +133,11 @@ export default function ScanPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Scanner"
+        eyebrow="Hook Scanner"
         title="Scan a Uniswap v4 hook"
         description="Resolves the contract at a pinned block, decodes permissions, fetches or matches source, discovers pools and runs the deterministic analyzers. No wallet is needed."
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Target" />
           <CardBody>
@@ -147,8 +154,8 @@ export default function ScanPage() {
               </Field>
               {chain && !chain.rpc_configured ? (
                 <Notice tone="warn">
-                  {chain.name} has no RPC configured on this server, so scans will be rejected. Set{" "}
-                  <code className="font-mono">HOOKLENS_MAINNET_RPC_URL</code> on the backend.
+                  {chain.name} has no RPC configured on this server, so scans will be rejected. The server operator
+                  must set this chain&apos;s RPC URL in the backend environment (see .env.example).
                 </Notice>
               ) : null}
 
@@ -167,7 +174,7 @@ export default function ScanPage() {
               </Field>
               <PermissionPreview address={address.trim()} />
 
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field id={fid("pool")} label="Pool ID (optional)" hint="Analyse one specific pool" error={err.pool_id?.message}>
                   <input
                     id={fid("pool")}
@@ -214,7 +221,7 @@ export default function ScanPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Progress" description={scanId ? undefined : "Live job events appear here once a scan starts."} />
+          <CardHeader title="Progress" description={scanId ? "Stages and messages streamed from the backend job." : "Live job events appear here once a scan starts. A scan runs these stages:"} />
           <CardBody>
             {jobId ? (
               <div className="flex flex-col gap-4">

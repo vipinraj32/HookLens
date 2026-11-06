@@ -5,17 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.routes_core import owned_scan
 from app.api.security import limit_jobs, workspace
 from app.config import get_settings
 from app.db.base import get_db
-from app.db.models import AiExplanation, Finding, Report
+from app.db.models import AiExplanation, Finding, Report, Scan
 from app.errors import AppError, NotFound
 from app.services import ai_service, report_service
 
@@ -75,6 +75,24 @@ def list_reports(scan_id: str, db: Session = Depends(get_db), ws: str = Depends(
         .all()
     )
     return [_report_out(r, full=False) for r in rows]
+
+
+@router.get("/reports", tags=["reports"])
+def list_workspace_reports(
+    db: Session = Depends(get_db),
+    ws: str = Depends(workspace),
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    chain_id: int | None = None,
+) -> dict[str, Any]:
+    """All reports in the caller's workspace, newest first, with the scanned hook's identity."""
+    q = select(Report, Scan).join(Scan, Scan.id == Report.scan_id).where(Report.workspace_id == ws)
+    if chain_id is not None:
+        q = q.where(Scan.chain_id == chain_id)
+    total = db.execute(select(func.count()).select_from(q.subquery())).scalar_one()
+    rows = db.execute(q.order_by(Report.created_at.desc()).limit(limit).offset(offset)).all()
+    items = [{**_report_out(r, full=False), "chain_id": s.chain_id, "hook_address": s.hook_address} for r, s in rows]
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/reports/{report_id}", tags=["reports"])

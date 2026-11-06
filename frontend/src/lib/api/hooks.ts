@@ -19,7 +19,7 @@ export const isTerminal = (status: string | undefined) => !!status && TERMINAL.h
 export const keys = {
   health: ["health"] as const,
   chains: ["chains"] as const,
-  scans: (offset: number) => ["scans", offset] as const,
+  scans: (offset: number, filter?: ScanFilter) => ["scans", offset, filter ?? {}] as const,
   scan: (id: string) => ["scan", id] as const,
   findings: (id: string) => ["findings", id] as const,
   scenarios: ["scenarios"] as const,
@@ -50,10 +50,16 @@ export function useChains() {
   });
 }
 
-export function useScans(offset = 0, limit = 25) {
+export type ScanFilter = { chain_id?: number | null; status?: string | null };
+
+export function useScans(offset = 0, limit = 25, filter?: ScanFilter) {
   return useQuery({
-    queryKey: keys.scans(offset),
-    queryFn: ({ signal }) => api.get("/scans", M.page(M.ScanSummary), { signal, query: { offset, limit } }),
+    queryKey: [...keys.scans(offset, filter), limit],
+    queryFn: ({ signal }) =>
+      api.get("/scans", M.page(M.ScanSummary), {
+        signal,
+        query: { offset, limit, chain_id: filter?.chain_id ?? undefined, status: filter?.status ?? undefined },
+      }),
   });
 }
 
@@ -147,6 +153,15 @@ export function useReports(scanId: string) {
     queryKey: keys.reports(scanId),
     queryFn: ({ signal }) => api.get(`/scans/${scanId}/reports`, z.array(M.Report), { signal }),
     refetchInterval: (q) => (q.state.data?.some((r) => r.status === "rendering") ? 2000 : false),
+  });
+}
+
+/** Every report in this workspace (GET /reports), newest first. */
+export function useWorkspaceReports(offset = 0, limit = 25, chainId?: number | null) {
+  return useQuery({
+    queryKey: ["reports", "all", offset, limit, chainId ?? null],
+    queryFn: ({ signal }) =>
+      api.get("/reports", M.page(M.WorkspaceReport), { signal, query: { offset, limit, chain_id: chainId ?? undefined } }),
   });
 }
 

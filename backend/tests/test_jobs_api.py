@@ -226,3 +226,37 @@ def test_cors_origins_from_env_comma_separated(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setenv("HOOKLENS_CORS_ORIGINS", "http://localhost:3000, https://app.example")
     assert Settings().cors_origins == ["http://localhost:3000", "https://app.example"]
+
+
+def test_workspace_report_list_is_scoped_and_filterable(client: Any) -> None:
+    from app.api.security import verify_token
+    from app.db.models import Report, Scan
+
+    token = client.get("/v1/reports").headers["X-HookLens-Workspace"]
+    ws = verify_token(token)
+    assert ws
+    hdr = {"X-HookLens-Workspace": token}
+    with session_scope() as db:
+        mine = Scan(workspace_id=ws, chain_id=31337, hook_address="0x" + "ab" * 20, status="completed")
+        other = Scan(workspace_id="someone-else", chain_id=31337, hook_address="0x" + "cd" * 20, status="completed")
+        db.add_all([mine, other])
+        db.flush()
+        db.add_all(
+            [
+                Report(workspace_id=ws, scan_id=mine.id, report_version="1", content={}, content_hash="0x" + "0" * 64),
+                Report(
+                    workspace_id="someone-else",
+                    scan_id=other.id,
+                    report_version="1",
+                    content={},
+                    content_hash="0x" + "1" * 64,
+                ),
+            ]
+        )
+
+    body = client.get("/v1/reports", headers=hdr).json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["hook_address"] == "0x" + "ab" * 20 and item["chain_id"] == 31337
+    assert "content" not in item  # list rows never carry the full report
+    assert client.get("/v1/reports", headers=hdr, params={"chain_id": 1}).json()["total"] == 0

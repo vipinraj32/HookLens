@@ -4,15 +4,17 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  --color-bg: oklch(0.155 0.012 260);
-  --color-surface: oklch(0.195 0.014 260);
-  --color-surface-2: oklch(0.235 0.016 260);
-  --color-line: oklch(0.3 0.016 260);
-  --color-fg: oklch(0.95 0.005 260);
-  --color-muted: oklch(0.72 0.015 260);
-  --color-faint: oklch(0.58 0.015 260);
-  --color-accent: oklch(0.8 0.13 195);
-  --color-accent-strong: oklch(0.72 0.14 195);
+  /* Near-black purple base with a pink/magenta accent and a violet secondary. */
+  --color-bg: oklch(0.145 0.025 300);
+  --color-surface: oklch(0.185 0.032 300);
+  --color-surface-2: oklch(0.225 0.038 300);
+  --color-line: oklch(0.31 0.04 300);
+  --color-fg: oklch(0.96 0.008 320);
+  --color-muted: oklch(0.76 0.03 310);
+  --color-faint: oklch(0.62 0.035 305);
+  --color-accent: oklch(0.76 0.19 335);
+  --color-accent-strong: oklch(0.69 0.21 340);
+  --color-violet: oklch(0.7 0.17 295);
 
   --color-sev-critical: oklch(0.66 0.22 20);
   --color-sev-high: oklch(0.72 0.18 45);
@@ -161,5 +163,5 @@ body {
 .landing-glow {
   background:
     radial-gradient(60rem 30rem at 15% -10%, color-mix(in oklch, var(--color-accent) 16%, transparent), transparent 70%),
-    radial-gradient(40rem 24rem at 95% 10%, color-mix(in oklch, var(--color-sev-low) 10%, transparent), transparent 70%);
+    radial-gradient(40rem 24rem at 95% 10%, color-mix(in oklch, var(--color-violet) 16%, transparent), transparent 70%);
 }

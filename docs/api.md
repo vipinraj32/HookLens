@@ -42,6 +42,7 @@ with `npm run gen:api`.
 | POST | `/v1/positions/compare` | LP baseline, hypothetical price moves and measured simulation effects |
 | GET | `/v1/positions/{id}` | A stored comparison |
 | POST / GET | `/v1/scans/{id}/reports` | Generate a report, or list reports |
+| GET | `/v1/reports?offset=&limit=&chain_id=` | All reports in the workspace, newest first, with `chain_id` and `hook_address` (no report content) |
 | GET | `/v1/reports/{id}`, `/v1/reports/{id}/pdf` | The JSON report (with `content_hash`), or the PDF |
 | POST / GET | `/v1/scans/{id}/findings/{finding_id}/explanations` | Request an AI explanation, or list them. Returns `unavailable` without an Anthropic key |
 

@@ -11,6 +11,9 @@ import { Button, ErrorState, ProgressBar, StatusBadge } from "./ui";
 export function JobProgress({ jobId, stream, title }: { jobId: string; stream: JobStream; title: string }) {
   const cancel = useCancelJob();
   const events = stream.events.slice(-40);
+  // Only stages the backend actually reported, in the order they first appeared.
+  const stages = [...new Set(stream.events.map((e) => e.stage))];
+  const currentStage = stream.events.at(-1)?.stage;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -35,6 +38,25 @@ export function JobProgress({ jobId, stream, title }: { jobId: string; stream: J
         ) : null}
       </div>
       <ProgressBar value={stream.progress} label={`${title} progress`} />
+      {stages.length ? (
+        <ol aria-label={`${title} stages reported`} className="flex flex-wrap gap-1.5">
+          {stages.map((st) => {
+            const active = st === currentStage && !stream.done;
+            return (
+              <li
+                key={st}
+                aria-current={active ? "step" : undefined}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 font-mono text-[11px]",
+                  active ? "border-accent/60 bg-accent/10 text-fg" : "border-line text-muted",
+                )}
+              >
+                {st}
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
       {cancel.isError ? <ErrorState error={cancel.error} title="Cancel failed" /> : null}
       <ol aria-live="polite" className="max-h-72 overflow-y-auto rounded-lg border border-line bg-bg p-3 font-mono text-xs">
         {events.length === 0 ? <li className="text-faint">Waiting for the worker…</li> : null}

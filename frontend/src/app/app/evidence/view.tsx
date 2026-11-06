@@ -37,7 +37,7 @@ export function EvidenceView() {
         description="Every finding cites evidence: source excerpts with line ranges, bytecode facts, on-chain state, permission bits and simulation steps."
       />
       <Card className="mb-6 p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_repeat(3,minmax(0,0.8fr))]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_repeat(3,minmax(0,0.8fr))]">
           <label className="flex flex-col gap-1 text-xs text-muted" htmlFor={`${id}-scan`}>
             Scan
             <select

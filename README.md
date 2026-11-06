@@ -264,6 +264,7 @@ scripts/    dev-chain.sh
 - [Simulation methodology](docs/simulation-methodology.md)
 - [LP math](docs/lp-math.md)
 - [API](docs/api.md)
+- [Frontend: UI architecture and real-data rules](docs/frontend.md)
 - [Deployment](docs/deployment.md)
 - [Limitations](docs/limitations.md)
 - [Build feedback](FEEDBACK.md)

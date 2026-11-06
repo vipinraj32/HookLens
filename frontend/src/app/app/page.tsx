@@ -1,39 +1,134 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ScanSearch } from "lucide-react";
+import { ArrowRight, FileText, FlaskConical, Gauge, ScanSearch, ShieldAlert } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import type { ComponentType } from "react";
 
-import { Badge, Button, Card, CardHeader, EmptyState, ErrorState, Mono, PageHeader, SeverityBadge, Skeleton, StatusBadge } from "@/components/ui";
-import { useChains, useScans } from "@/lib/api/hooks";
-import { SEVERITIES } from "@/lib/api/models";
-import { formatDate } from "@/lib/format";
+import { NoScans, ScanTable } from "@/components/scan-table";
+import { Badge, Button, Card, Mono, PageHeader, Skeleton } from "@/components/ui";
+import { isTerminal, useChains, useScans } from "@/lib/api/hooks";
+import type { ScanSummary } from "@/lib/api/models";
+import { cn, shortHex } from "@/lib/format";
+import { useNetwork } from "@/lib/network";
 
-const LIMIT = 20;
+type Tile = { icon: ComponentType<{ className?: string }>; title: string; body: string; href: string; primary?: boolean };
 
-export default function Dashboard() {
-  const [offset, setOffset] = useState(0);
-  const scans = useScans(offset, LIMIT);
+/** Next steps derived only from the user's latest real scan. */
+function nextActions(latest: ScanSummary | undefined): Tile[] {
+  const scan: Tile = {
+    icon: ScanSearch,
+    title: latest ? "Analyze another hook" : "Analyze your first hook",
+    body: "Paste a deployed v4 hook address. HookLens pins a block and decodes its permissions.",
+    href: "/app/scan",
+    primary: !latest,
+  };
+  if (!latest) return [scan];
+  const hook = shortHex(latest.hook_address);
+  const done = isTerminal(latest.status) && latest.status !== "failed" && latest.status !== "cancelled";
+  if (!done) {
+    return [
+      {
+        icon: ShieldAlert,
+        title: `Follow the scan of ${hook}`,
+        body: `Status: ${latest.status}. Findings appear as soon as the analyzers finish.`,
+        href: `/app/scans/${latest.id}`,
+        primary: true,
+      },
+      scan,
+    ];
+  }
+  const n = latest.summary.finding_count;
+  return [
+    {
+      icon: ShieldAlert,
+      title: `Review ${hook}`,
+      body: n === undefined ? "Open the permission matrix and findings." : `${n} finding${n === 1 ? "" : "s"} to review, each with evidence.`,
+      href: `/app/scans/${latest.id}`,
+      primary: true,
+    },
+    {
+      icon: FlaskConical,
+      title: "Run the Adversarial Lab",
+      body: "Execute fork scenarios against this hook's pool and inspect each step.",
+      href: `/app/scans/${latest.id}/lab`,
+    },
+    {
+      icon: Gauge,
+      title: "Model an LP position",
+      body: "Exact v4 math for a range in one of its pools.",
+      href: `/app/lp?scan=${latest.id}`,
+    },
+    scan,
+  ];
+}
+
+export default function Overview() {
+  const [network] = useNetwork();
+  const latest = useScans(0, 1, { chain_id: network });
   const chains = useChains();
-  const chainName = (id: number) => chains.data?.find((c) => c.chain_id === id)?.name ?? `Chain ${id}`;
+  const visibleChains = chains.data?.filter((c) => network === null || c.chain_id === network);
+  const tiles = latest.data ? nextActions(latest.data.items[0]) : null;
 
   return (
     <>
       <PageHeader
-        title="Dashboard"
+        title="Overview"
         description="Scans in this browser's anonymous workspace. Nothing here is shared unless you export a report."
         actions={
           <Button variant="primary" asChild>
             <Link href="/app/scan">
-              <ScanSearch aria-hidden="true" className="size-4" /> New scan
+              <ScanSearch aria-hidden="true" className="size-4" /> Analyze a hook
             </Link>
           </Button>
         }
       />
 
-      {chains.data ? (
+      <section aria-label="Next steps" className="mb-6">
+        {tiles ? (
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {tiles.map(({ icon: Icon, title, body, href, primary }) => (
+              <li key={title}>
+                <Link
+                  href={href}
+                  className={cn(
+                    "group flex h-full flex-col gap-2 rounded-2xl border p-4 transition-colors",
+                    primary ? "border-accent/50 bg-accent/10 hover:bg-accent/15" : "border-line bg-surface hover:border-violet/50 hover:bg-surface-2",
+                  )}
+                >
+                  <span className="flex items-center justify-between">
+                    <Icon className={cn("size-5", primary ? "text-accent" : "text-violet")} />
+                    <ArrowRight aria-hidden="true" className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                  <span className="text-sm font-semibold">{title}</span>
+                  <span className="text-xs text-muted">{body}</span>
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link
+                href="/app/reports"
+                className="group flex h-full flex-col gap-2 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-violet/50 hover:bg-surface-2"
+              >
+                <span className="flex items-center justify-between">
+                  <FileText className="size-5 text-violet" />
+                  <ArrowRight aria-hidden="true" className="size-4 text-faint" />
+                </span>
+                <span className="text-sm font-semibold">Reports</span>
+                <span className="text-xs text-muted">JSON and PDF reports you generated.</span>
+              </Link>
+            </li>
+          </ul>
+        ) : latest.isPending ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-28" />
+          </div>
+        ) : null}
+      </section>
+
+      {visibleChains?.length ? (
         <div className="mb-6 grid gap-3 sm:grid-cols-2">
-          {chains.data.map((c) => (
+          {visibleChains.map((c) => (
             <Card key={c.chain_id} className="px-5 py-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">{c.name}</p>
@@ -50,100 +145,13 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader
-          title="Recent scans"
-          description={scans.data ? `${scans.data.total} total` : undefined}
-          actions={
-            scans.data && scans.data.total > LIMIT ? (
-              <div className="flex items-center gap-1">
-                <Button size="icon" variant="ghost" aria-label="Previous page" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>
-                  <ChevronLeft aria-hidden="true" className="size-4" />
-                </Button>
-                <span className="text-xs text-muted">
-                  {offset + 1}–{Math.min(offset + LIMIT, scans.data.total)}
-                </span>
-                <Button size="icon" variant="ghost" aria-label="Next page" disabled={offset + LIMIT >= scans.data.total} onClick={() => setOffset(offset + LIMIT)}>
-                  <ChevronRight aria-hidden="true" className="size-4" />
-                </Button>
-              </div>
-            ) : null
-          }
-        />
-        {scans.isPending ? (
-          <div className="space-y-2 p-5">
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-          </div>
-        ) : scans.isError ? (
-          <div className="p-5">
-            <ErrorState error={scans.error} onRetry={() => scans.refetch()} />
-          </div>
-        ) : scans.data.items.length === 0 ? (
-          <EmptyState
-            title="No scans yet"
-            action={
-              <Button variant="primary" asChild>
-                <Link href="/app/scan">Scan a hook</Link>
-              </Button>
-            }
-          >
-            Enter a Uniswap v4 hook address to decode its permissions, run the analyzers and discover its pools.
-          </EmptyState>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wide text-faint">
-                <tr className="border-b border-line">
-                  <th scope="col" className="px-5 py-2.5 font-medium">Hook</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Chain</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Status</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Findings</th>
-                  <th scope="col" className="px-5 py-2.5 font-medium">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scans.data.items.map((s) => {
-                  const by = s.summary.by_severity ?? {};
-                  return (
-                    <tr key={s.id} className="border-b border-line/60 last:border-0 hover:bg-surface-2/50">
-                      <td className="px-5 py-3">
-                        <Link href={`/app/scans/${s.id}`} className="font-mono text-[13px] text-accent hover:underline">
-                          {s.hook_address}
-                        </Link>
-                        {s.block_number !== null && s.block_number !== undefined ? (
-                          <span className="ml-2 text-xs text-faint">@ {s.block_number}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-3 text-muted">{chainName(s.chain_id)}</td>
-                      <td className="px-3 py-3">
-                        <StatusBadge status={s.status} />
-                      </td>
-                      <td className="px-3 py-3">
-                        {s.summary.finding_count === undefined ? (
-                          <span className="text-faint">—</span>
-                        ) : (
-                          <span className="flex flex-wrap gap-1">
-                            {SEVERITIES.filter((k) => (by[k] ?? 0) > 0).map((k) => (
-                              <span key={k} className="inline-flex items-center gap-1">
-                                <SeverityBadge severity={k} />
-                                <span className="text-xs text-muted">{by[k]}</span>
-                              </span>
-                            ))}
-                            {s.summary.finding_count === 0 ? <span className="text-xs text-muted">none</span> : null}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-muted">{formatDate(s.created_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <ScanTable
+        title="Recent scans"
+        description={network === null ? "all networks" : undefined}
+        filter={{ chain_id: network }}
+        href={(s) => `/app/scans/${s.id}`}
+        empty={<NoScans />}
+      />
     </>
   );
 }

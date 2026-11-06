@@ -50,12 +50,18 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
   await expect(page.getByRole("heading", { name: /Evidence \(\d+\)/ })).toBeVisible();
   await expect(page.locator("article[id^='EV-']").first()).toBeVisible();
   // Without an API key the AI path must say so instead of inventing output.
-  await page.getByRole("button", { name: "Explain this finding" }).click();
-  await expect(page.getByText(/AI explanations are disabled/)).toBeVisible();
+  // When a key is configured we do not trigger a paid model call from the e2e run.
+  const health = await (await page.request.get("/api/v1/health/worker")).json();
+  if (!health.ai?.enabled) {
+    await page.getByRole("button", { name: "Explain this finding" }).click();
+    await expect(page.getByText(/AI explanations are disabled/)).toBeVisible();
+  }
   await shot("hook-intelligence");
 
-  await page.getByRole("tab", { name: "Permissions" }).click();
-  await expect(page.getByRole("cell", { name: "BEFORE_REMOVE_LIQUIDITY" })).toBeVisible();
+  await page.getByRole("tab", { name: "Permission matrix" }).click();
+  await page.getByRole("button", { name: "beforeRemoveLiquidity, enabled" }).click();
+  await expect(page.getByText(/Related findings \([1-9]\d*\)/)).toBeVisible();
+  await expect(page.getByRole("link", { name: /Withdrawal failure/ }).first()).toBeVisible();
   await page.getByRole("tab", { name: /Pools \(1\)/ }).click();
   await expect(page.getByText("hlWETH / hlUSD").or(page.getByText("hlUSD / hlWETH"))).toBeVisible();
 
@@ -70,14 +76,14 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
     if (!name.startsWith("Withdrawal failure")) await box.uncheck();
   }
   await expect(page.getByRole("checkbox", { name: /^Withdrawal failure/ })).toBeChecked();
-  await page.getByRole("button", { name: "Run on fork" }).click();
+  await page.getByRole("button", { name: /Run \d+ scenarios? on fork/ }).click();
 
   const runRow = page.getByRole("row", { name: /Withdrawal failure/ });
   await expect(runRow.getByText("unexpected revert")).toBeVisible({ timeout: 300_000 });
   // The failing step is auto-selected and its revert decoded from the real trace.
   await expect(page.getByText("Decoded revert")).toBeVisible();
   await expect(page.getByText(/reverted: HookLens: mocked oracle revert/).first()).toBeVisible();
-  await expect(page.getByText("Call trace")).toBeVisible();
+  await expect(page.getByText("Trace explorer")).toBeVisible();
   await expect(page.getByText(/forge test --match-contract/)).toBeVisible();
   await shot("adversarial-lab");
 

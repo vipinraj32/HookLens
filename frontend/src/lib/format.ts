@@ -53,3 +53,23 @@ export function humanize(id: string): string {
 export function pct(v: number): string {
   return `${Math.round(v * 100)}%`;
 }
+
+/**
+ * Exact decimal rendering of a signed integer token amount (no floating point), e.g.
+ * formatUnits("-886113396", 6) === "-886.113396". Returns null when decimals are unknown.
+ */
+export function formatUnits(raw: string | null | undefined, decimals: number | null | undefined, maxFraction = 6): string | null {
+  if (raw === null || raw === undefined || decimals === null || decimals === undefined || !/^-?\d+$/.test(raw)) return null;
+  const neg = raw.startsWith("-");
+  const digits = (neg ? raw.slice(1) : raw).replace(/^0+(?=\d)/, "");
+  const padded = digits.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, padded.length - decimals) || "0";
+  let frac = decimals ? padded.slice(padded.length - decimals) : "";
+  const cut = frac.length > maxFraction && /[1-9]/.test(frac.slice(maxFraction));
+  if (frac.length > maxFraction) frac = frac.slice(0, maxFraction);
+  frac = frac.replace(/0+$/, "");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const isZero = /^0*$/.test(digits);
+  if (cut && whole === "0" && !frac) return `${neg ? "-" : ""}<0.${"0".repeat(Math.max(0, maxFraction - 1))}1`;
+  return `${neg && !isZero ? "-" : ""}${grouped}${frac ? `.${frac}` : ""}${cut ? "…" : ""}`;
+}

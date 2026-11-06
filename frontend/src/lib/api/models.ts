@@ -455,6 +455,9 @@ export const Report = z.looseObject({
 });
 export type Report = z.infer<typeof Report>;
 
+export const WorkspaceReport = Report.extend({ chain_id: z.number(), hook_address: z.string() });
+export type WorkspaceReport = z.infer<typeof WorkspaceReport>;
+
 export const Explanation = z.looseObject({
   id: z.string(),
   scan_id: z.string(),

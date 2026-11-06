@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDuration, groupDecimal, humanize, parseUtc, shortHex } from "./format";
+import { formatDuration, formatUnits, groupDecimal, humanize, parseUtc, shortHex } from "./format";
 
 describe("format", () => {
   it("groups decimal strings exactly, without float conversion", () => {
@@ -22,5 +22,20 @@ describe("format", () => {
     expect(formatDuration(125_000)).toBe("2m 5s");
     expect(shortHex("0x8c555A02175966f3c564bF3f3d62E722E6D04200")).toBe("0x8c555A…4200");
     expect(humanize("withdrawal_failure")).toBe("Withdrawal failure");
+  });
+});
+
+describe("formatUnits", () => {
+  it("renders exact signed decimals without floating point", () => {
+    expect(formatUnits("-886113396", 6)).toBe("-886.113396");
+    expect(formatUnits("9999999999999976436", 18)).toBe("9.999999…");
+    expect(formatUnits("1000000000000000000", 18)).toBe("1");
+    expect(formatUnits("123456789", 0)).toBe("123,456,789");
+    expect(formatUnits("0", 18)).toBe("0");
+    expect(formatUnits("5", 18, 6)).toBe("<0.000001");
+  });
+  it("returns null when decimals are unknown or input is not an integer", () => {
+    expect(formatUnits("1", null)).toBeNull();
+    expect(formatUnits("1.5", 18)).toBeNull();
   });
 });

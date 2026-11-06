@@ -12,15 +12,14 @@ import {
   Network,
   Radio,
   ShieldAlert,
-  Sparkles,
   Split,
 } from "lucide-react";
 import Link from "next/link";
 
-import { FindingExplorer } from "@/components/landing/finding-explorer";
+import { HookLifecycle } from "@/components/landing/hook-lifecycle";
+import { LiveStatus } from "@/components/landing/live-status";
 import { PermissionDecoder } from "@/components/landing/permission-decoder";
 import { ProductTabs } from "@/components/landing/product-tabs";
-import { Terminal } from "@/components/landing/terminal";
 
 const REPO = "https://github.com/vipinraj32/HookLens";
 
@@ -83,13 +82,43 @@ const CHECKS = [
   },
 ];
 
-const PIPELINE = [
-  { icon: Binary, title: "Resolve & decode", body: "Pin a block, read code, detect proxies, and decode the permission bits." },
-  { icon: ShieldAlert, title: "Deterministic analyzers", body: "Source-AST and bytecode rules. Every finding has a stable ID and evidence." },
-  { icon: FlaskConical, title: "Fork simulations", body: "Foundry scenarios against the real PoolManager, with decoded traces." },
-  { icon: Gauge, title: "LP exposure", body: "Exact v4 integer math. Every figure is tagged on-chain, measured or hypothetical." },
-  { icon: Sparkles, title: "Grounded explanations", body: "Optional AI explanations, rejected if they cite evidence that doesn't exist." },
-  { icon: FileCheck2, title: "Reports", body: "HTML, JSON, SARIF and PDF, all rendered from the same findings." },
+const FLOW = [
+  { icon: Binary, title: "Hook Scanner", body: "Resolve a deployed hook, pin a block, decode its permission bits.", href: "/app/scan" },
+  { icon: ShieldAlert, title: "Hook Intelligence", body: "Static findings with evidence: admin powers, oracles, fees, proxies.", href: "/app/scans" },
+  { icon: FlaskConical, title: "Adversarial Lab", body: "Foundry scenarios against the real PoolManager on a fork.", href: "/app/lab" },
+  { icon: Gauge, title: "LP Exposure", body: "Exact v4 math for your range, with measured lab effects.", href: "/app/lp" },
+  { icon: FileCheck2, title: "Reports", body: "JSON and PDF built from the same findings and runs.", href: "/app/reports" },
+] as const;
+
+const WHY = [
+  {
+    title: "Why hooks matter",
+    tone: "text-accent",
+    points: [
+      "A v4 pool's hook is fixed at creation and runs on every swap or liquidity change it enables.",
+      "It can revert, override the LP fee, or move tokens through return deltas.",
+      "Admin roles, oracles and proxies can change that behaviour after you deposit.",
+    ],
+  },
+  {
+    title: "What LPs should investigate",
+    tone: "text-warn",
+    points: [
+      "Can anything make beforeRemoveLiquidity or afterRemoveLiquidity revert?",
+      "Who can change the fee, and within which bounds?",
+      "Does the hook take a delta from swaps or withdrawals?",
+      "Can the code be upgraded, or the oracle replaced?",
+    ],
+  },
+  {
+    title: "How HookLens tests it",
+    tone: "text-violet",
+    points: [
+      "Static analyzers on verified source and bytecode, each finding with evidence.",
+      "Foundry scenarios on a fork at a pinned block: real reverts, deltas and traces.",
+      "Exact v4 position math, with every figure tagged measured or hypothetical.",
+    ],
+  },
 ];
 
 const COMPARE: [string, string, string][] = [
@@ -125,17 +154,17 @@ export default function Landing() {
           </Link>
           <nav aria-label="Primary" className="flex items-center gap-1 text-sm">
             <span className="hidden items-center gap-1 md:flex">
-              <a href="#offer" className="rounded-md px-3 py-2 text-muted hover:text-fg">
-                Products
+              <a href="#lifecycle" className="rounded-md px-3 py-2 text-muted hover:text-fg">
+                How hooks work
               </a>
               <a href="#try" className="rounded-md px-3 py-2 text-muted hover:text-fg">
-                Try it
+                Decode
               </a>
               <a href="#checks" className="rounded-md px-3 py-2 text-muted hover:text-fg">
                 Checks
               </a>
-              <a href="#example" className="rounded-md px-3 py-2 text-muted hover:text-fg">
-                Example
+              <a href="#offer" className="rounded-md px-3 py-2 text-muted hover:text-fg">
+                Products
               </a>
             </span>
             <a href={REPO} className="rounded-md px-3 py-2 text-muted hover:text-fg">
@@ -152,49 +181,94 @@ export default function Landing() {
       <main>
         {/* ------------------------------------------------------------------ hero */}
         <section className="landing-glow">
-          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-6 pb-20 pt-16 sm:pt-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-6 pb-16 pt-16 sm:pt-20 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
             <div>
               <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs text-muted">
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-ok" />
-                Open source · Uniswap v4 hooks · Web app, CLI and GitHub Action
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
+                Uniswap v4 hook analysis · open source
               </p>
-              <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-                See what your liquidity is <span className="text-accent">really</span> exposed to.
+              <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+                See what your liquidity is{" "}
+                <span className="bg-gradient-to-r from-accent to-violet bg-clip-text text-transparent">really</span>{" "}
+                exposed to
               </h1>
               <p className="mt-5 max-w-xl text-lg text-muted">
-                HookLens reads a Uniswap v4 hook&apos;s code, runs it on a fork, and shows you, with evidence, when a
-                withdrawal can be blocked, a fee raised or accounting changed.
+                Analyze Uniswap v4 hooks. Simulate real pool interactions. Understand LP exposure.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/app/scan"
-                  className="inline-flex h-11 items-center gap-2 rounded-md bg-accent px-5 text-sm font-medium text-bg hover:bg-accent-strong"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-medium text-bg shadow-[0_0_24px_-6px_var(--color-accent)] hover:bg-accent-strong"
                 >
-                  Scan a deployed hook <ArrowRight aria-hidden="true" className="size-4" />
+                  Analyze a Hook <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
                 <a
-                  href="#offer"
-                  className="inline-flex h-11 items-center rounded-md border border-line bg-surface px-5 text-sm font-medium hover:bg-surface-2"
+                  href="#lifecycle"
+                  className="inline-flex h-11 items-center rounded-xl border border-line bg-surface px-5 text-sm font-medium hover:border-violet/60 hover:bg-surface-2"
                 >
-                  Scan source in CI
+                  Explore How Hooks Work
                 </a>
               </div>
-              <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 text-sm">
-                <div>
-                  <dt className="text-faint">Analyzers</dt>
-                  <dd className="mt-1 text-xl font-semibold">10</dd>
-                </div>
-                <div>
-                  <dt className="text-faint">Fork scenarios</dt>
-                  <dd className="mt-1 text-xl font-semibold">6</dd>
-                </div>
-                <div>
-                  <dt className="text-faint">Report formats</dt>
-                  <dd className="mt-1 text-xl font-semibold">5</dd>
-                </div>
-              </dl>
+              <div className="mt-10 max-w-2xl">
+                <LiveStatus />
+              </div>
             </div>
-            <Terminal />
+            <ol aria-label="HookLens workflow" className="flex flex-col gap-2">
+              {FLOW.map(({ icon: Icon, title, body, href }, i) => (
+                <li key={title}>
+                  <Link
+                    href={href}
+                    className="group flex items-start gap-4 rounded-2xl border border-line bg-surface/70 p-4 transition-colors hover:border-accent/50 hover:bg-surface-2"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent ring-1 ring-accent/30 transition-colors group-hover:bg-accent group-hover:text-bg">
+                      <Icon aria-hidden="true" className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <span className="font-mono text-[11px] text-faint">0{i + 1}</span>
+                        {title}
+                      </span>
+                      <span className="mt-1 block text-sm text-muted">{body}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* ------------------------------------------------------------------ lifecycle */}
+        <section id="lifecycle" aria-labelledby="lifecycle-h" className="scroll-mt-16 border-y border-line bg-surface/40">
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <SectionHeading
+              id="lifecycle-h"
+              eyebrow="How v4 hooks work"
+              title="Follow a pool operation through its hook"
+              lead="Pick an operation and step through it. Pink steps are hook callbacks: code the pool creator chose, running inside your swap or your withdrawal."
+            />
+            <div className="mt-10">
+              <HookLifecycle />
+            </div>
+          </div>
+        </section>
+
+        {/* ------------------------------------------------------------------ why */}
+        <section aria-labelledby="why-h" className="mx-auto max-w-6xl px-6 py-20">
+          <SectionHeading id="why-h" eyebrow="Why it matters" title="Hooks run inside every LP's position" />
+          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {WHY.map(({ title, points, tone }) => (
+              <div key={title} className="rounded-2xl border border-line bg-surface/60 p-5">
+                <h3 className={`text-sm font-semibold ${tone}`}>{title}</h3>
+                <ul className="mt-3 flex flex-col gap-2 text-sm text-muted">
+                  {points.map((p) => (
+                    <li key={p} className="flex gap-2">
+                      <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-current" />
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -260,21 +334,6 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ------------------------------------------------------------------ example */}
-        <section id="example" aria-labelledby="example-h" className="scroll-mt-16">
-          <div className="landing-reveal mx-auto max-w-6xl px-6 py-20">
-            <SectionHeading
-              id="example-h"
-              eyebrow="Example report"
-              title="Explore a real scan"
-              lead="These findings come from running the CLI on HookLens's own deliberately flawed test hooks. Filter, search, and expand a finding to see its LP impact and the source that triggered it."
-            />
-            <div className="mt-10">
-              <FindingExplorer />
-            </div>
-          </div>
-        </section>
-
         {/* ------------------------------------------------------------------ static vs execution */}
         <section aria-labelledby="modes-h" className="border-y border-line bg-surface/40">
           <div className="landing-reveal mx-auto max-w-6xl px-6 py-20">
@@ -313,25 +372,6 @@ export default function Landing() {
               </table>
             </div>
           </div>
-        </section>
-
-        {/* ------------------------------------------------------------------ pipeline */}
-        <section aria-labelledby="how" className="landing-reveal mx-auto max-w-6xl px-6 py-20">
-          <SectionHeading id="how" eyebrow="How it works" title="From address to evidence" />
-          <ol className="mt-10 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
-            {PIPELINE.map(({ icon: Icon, title, body }, i) => (
-              <li key={title} className="group bg-bg p-5 transition-colors hover:bg-surface">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-8 place-items-center rounded-md bg-surface-2 text-accent transition-colors group-hover:bg-accent group-hover:text-bg">
-                    <Icon aria-hidden="true" className="size-4" />
-                  </span>
-                  <span className="font-mono text-xs text-faint">0{i + 1}</span>
-                </div>
-                <h3 className="mt-4 text-sm font-semibold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
-              </li>
-            ))}
-          </ol>
         </section>
 
         {/* ------------------------------------------------------------------ honesty */}
