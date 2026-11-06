@@ -18,12 +18,11 @@ export default function LabIndex() {
       <PageHeader
         eyebrow="Adversarial Lab"
         title="Execute adversarial scenarios on a fork"
-        description="The lab runs Foundry tests against a scanned hook's real pool, at the block the scan pinned. Open a completed scan to configure a run."
+        description="Foundry scenarios on a fork of the hook's real pool. Start from a completed scan."
       />
       {health.data && !health.data.forge.available ? (
         <Notice tone="warn" className="mb-4">
-          Foundry is not available on this server, so simulations cannot run. Install it with foundryup and restart the
-          backend.
+          Foundry unavailable. Install with foundryup and restart the backend.
         </Notice>
       ) : null}
 
@@ -54,10 +53,10 @@ export default function LabIndex() {
         <CardHeader
           title={
             <span className="flex items-center gap-2">
-              <Info aria-hidden="true" className="size-4 text-accent" /> Reading results
+              <Info aria-hidden="true" className="size-4 text-muted" /> Reading results
             </span>
           }
-          description="Lab statuses are forge outcomes at one fork block. They are grouped like this everywhere in HookLens."
+          description="Forge outcomes at one fork block."
         />
         <CardBody>
           <OutcomeLegend />

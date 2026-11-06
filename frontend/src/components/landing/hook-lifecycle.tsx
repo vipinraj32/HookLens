@@ -42,7 +42,7 @@ const UNLOCK: Step[] = [
     kind: "call",
     label: "unlock(data)",
     title: "Open a flash-accounting session",
-    body: "Every swap or liquidity change happens inside PoolManager.unlock. Balances are tracked as deltas and only settled at the end.",
+    body: "All pool actions run inside unlock. Balances settle at the end.",
   },
   {
     from: "pm",
@@ -50,7 +50,7 @@ const UNLOCK: Step[] = [
     kind: "callback",
     label: "unlockCallback(data)",
     title: "The router gets control back",
-    body: "The PoolManager calls back into the router, which now performs the actual pool operations.",
+    body: "The router now performs the pool operations.",
   },
 ];
 
@@ -59,7 +59,7 @@ const VIEWS: View[] = [
     id: "swap",
     label: "Swap",
     router: { name: "SwapRouter", sub: "trader's entry point" },
-    intro: "A trader swaps through a router. The PoolManager calls the hook before and after the price moves.",
+    intro: "The hook runs before and after the price moves.",
     steps: [
       ...UNLOCK,
       {
@@ -68,7 +68,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "swap(key, params, hookData)",
         title: "Request the swap",
-        body: "The router asks the PoolManager to swap in the pool identified by the PoolKey, which names the hook contract.",
+        body: "The PoolKey names the pool and its hook.",
       },
       {
         from: "pm",
@@ -77,7 +77,7 @@ const VIEWS: View[] = [
         label: "beforeSwap()",
         flag: "beforeSwap",
         title: "beforeSwap: the hook runs first",
-        body: "Called only if the hook address has the beforeSwap bit. The hook can revert the swap, return an LP fee override on dynamic-fee pools, or take part of the swap with beforeSwapReturnDelta.",
+        body: "Can revert, override the LP fee, or take part of the swap via a return delta.",
         lp: "Who can change the fee this returns, and within what bounds?",
       },
       {
@@ -86,7 +86,7 @@ const VIEWS: View[] = [
         kind: "internal",
         label: "Pool.swap: price moves",
         title: "Swap math across ticks",
-        body: "The pool walks ticks with concentrated-liquidity math. LP fees accrue to positions whose range contains the price.",
+        body: "Fees accrue to in-range positions.",
       },
       {
         from: "pm",
@@ -95,7 +95,7 @@ const VIEWS: View[] = [
         label: "afterSwap()",
         flag: "afterSwap",
         title: "afterSwap: the hook sees the result",
-        body: "Called only with the afterSwap bit. With afterSwapReturnDelta, the hook can take or add tokens to the unspecified side of the swap.",
+        body: "With a return delta, can take or add tokens on the unspecified side.",
         lp: "Does the hook take a cut of trades, and can that cut change?",
       },
       {
@@ -104,7 +104,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "settle() / take()",
         title: "Pay in, take out",
-        body: "The router pays the input currency and takes the output. Every delta, including the hook's, must net to zero.",
+        body: "All deltas, including the hook's, must net to zero.",
       },
       {
         from: "pm",
@@ -112,7 +112,7 @@ const VIEWS: View[] = [
         kind: "return",
         label: "unlock returns",
         title: "Session closes",
-        body: "If any delta is still non-zero, unlock reverts with CurrencyNotSettled and the whole transaction is undone.",
+        body: "Any unsettled delta reverts the whole transaction.",
       },
     ],
   },
@@ -120,7 +120,7 @@ const VIEWS: View[] = [
     id: "add",
     label: "Add Liquidity",
     router: { name: "PositionManager", sub: "LP's entry point" },
-    intro: "An LP deposits tokens into a price range. The hook can approve, reject or reprice the deposit.",
+    intro: "The hook can reject or reprice a deposit.",
     steps: [
       ...UNLOCK,
       {
@@ -129,7 +129,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "modifyLiquidity(+L)",
         title: "Request a deposit",
-        body: "A positive liquidityDelta over [tickLower, tickUpper) asks the pool to mint liquidity for this position.",
+        body: "Positive liquidityDelta over a tick range.",
       },
       {
         from: "pm",
@@ -138,7 +138,7 @@ const VIEWS: View[] = [
         label: "beforeAddLiquidity()",
         flag: "beforeAddLiquidity",
         title: "beforeAddLiquidity: gatekeeper",
-        body: "Called only with the beforeAddLiquidity bit. A revert here rejects the deposit, for example an allow-list or a pause.",
+        body: "A revert rejects the deposit (allow-list, pause).",
         lp: "Can an admin stop new deposits, and under which conditions?",
       },
       {
@@ -147,7 +147,7 @@ const VIEWS: View[] = [
         kind: "internal",
         label: "update position & ticks",
         title: "Liquidity is added",
-        body: "The PoolManager updates the position and tick state, and computes the token amounts the LP owes from the current price.",
+        body: "Amounts owed come from the current price.",
       },
       {
         from: "pm",
@@ -156,7 +156,7 @@ const VIEWS: View[] = [
         label: "afterAddLiquidity()",
         flag: "afterAddLiquidity",
         title: "afterAddLiquidity: can reprice",
-        body: "Called only with the afterAddLiquidity bit. With afterAddLiquidityReturnDelta, the hook can change what the LP actually pays.",
+        body: "With a return delta, can change what the LP pays.",
         lp: "Is the amount you pay the amount the v4 math says?",
       },
       {
@@ -165,7 +165,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "settle()",
         title: "LP pays the tokens",
-        body: "The position manager settles the negative deltas by paying both currencies to the PoolManager.",
+        body: "Both currencies are paid in.",
       },
       {
         from: "pm",
@@ -173,7 +173,7 @@ const VIEWS: View[] = [
         kind: "return",
         label: "unlock returns",
         title: "Deposit complete",
-        body: "All deltas are settled. The LP now owns liquidity in the range.",
+        body: "The LP owns liquidity in the range.",
       },
     ],
   },
@@ -181,7 +181,7 @@ const VIEWS: View[] = [
     id: "remove",
     label: "Remove Liquidity",
     router: { name: "PositionManager", sub: "LP's entry point" },
-    intro: "Withdrawal is where hooks matter most to LPs: a callback here can delay, block or charge an exit.",
+    intro: "Callbacks here can block or charge an exit.",
     steps: [
       ...UNLOCK,
       {
@@ -190,7 +190,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "modifyLiquidity(−L)",
         title: "Request a withdrawal",
-        body: "A negative liquidityDelta burns the position's liquidity and collects accrued fees.",
+        body: "Burns liquidity and collects fees.",
       },
       {
         from: "pm",
@@ -199,7 +199,7 @@ const VIEWS: View[] = [
         label: "beforeRemoveLiquidity()",
         flag: "beforeRemoveLiquidity",
         title: "beforeRemoveLiquidity: can block exits",
-        body: "Called only with the beforeRemoveLiquidity bit. A revert here, from a pause, a time lock or a failing oracle read, means the LP cannot withdraw.",
+        body: "A revert (pause, time lock, oracle) blocks the withdrawal.",
         lp: "What makes this revert? Can an admin or an external contract trigger it?",
       },
       {
@@ -208,7 +208,7 @@ const VIEWS: View[] = [
         kind: "internal",
         label: "burn liquidity, accrue fees",
         title: "Liquidity is removed",
-        body: "The PoolManager computes the principal and fees owed to the LP as positive deltas.",
+        body: "Principal and fees become positive deltas.",
       },
       {
         from: "pm",
@@ -217,7 +217,7 @@ const VIEWS: View[] = [
         label: "afterRemoveLiquidity()",
         flag: "afterRemoveLiquidity",
         title: "afterRemoveLiquidity: can charge the exit",
-        body: "Called only with the afterRemoveLiquidity bit. A revert also blocks the exit. With afterRemoveLiquidityReturnDelta the hook can change what the LP receives.",
+        body: "A revert blocks the exit; a return delta changes what the LP receives.",
         lp: "Is there a withdrawal fee, and who sets it?",
       },
       {
@@ -226,7 +226,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "take()",
         title: "LP receives the tokens",
-        body: "The position manager takes the positive deltas: principal plus fees, adjusted by any hook delta.",
+        body: "Principal plus fees, after any hook delta.",
       },
       {
         from: "pm",
@@ -234,7 +234,7 @@ const VIEWS: View[] = [
         kind: "return",
         label: "unlock returns",
         title: "Withdrawal complete",
-        body: "If any earlier step reverted, nothing happened and the liquidity is still in the pool.",
+        body: "If any step reverted, the liquidity stays in the pool.",
       },
     ],
   },
@@ -242,7 +242,7 @@ const VIEWS: View[] = [
     id: "init",
     label: "Initialize",
     router: { name: "Pool creator", sub: "any account" },
-    intro: "A pool is created once, with its hook fixed forever in the PoolKey. Initialize needs no unlock.",
+    intro: "The hook is fixed in the PoolKey forever.",
     steps: [
       {
         from: "router",
@@ -250,7 +250,7 @@ const VIEWS: View[] = [
         kind: "call",
         label: "initialize(key, sqrtPriceX96)",
         title: "Create the pool",
-        body: "The PoolKey fixes currency0, currency1, fee, tick spacing and the hook address. Pool ID = keccak256(PoolKey).",
+        body: "Pool ID = keccak256(PoolKey).",
       },
       {
         from: "pm",
@@ -258,8 +258,8 @@ const VIEWS: View[] = [
         kind: "internal",
         label: "validate hook address bits",
         title: "Permissions come from the address",
-        body: "The low 14 bits of the hook address are its permissions. Invalid sets, such as a return delta without its base callback, are rejected.",
-        lp: "Decode the address bits below: they tell you which callbacks can ever run.",
+        body: "The low 14 address bits are the permissions. Invalid sets are rejected.",
+        lp: "Which callbacks can ever run? Decode the address below.",
       },
       {
         from: "pm",
@@ -268,7 +268,7 @@ const VIEWS: View[] = [
         label: "beforeInitialize()",
         flag: "beforeInitialize",
         title: "beforeInitialize",
-        body: "Called only with the beforeInitialize bit. The hook can refuse pool creation, for example to allow only one pool.",
+        body: "Can refuse pool creation.",
       },
       {
         from: "pm",
@@ -276,7 +276,7 @@ const VIEWS: View[] = [
         kind: "internal",
         label: "set slot0: price & tick",
         title: "Pool state is written",
-        body: "The starting price and tick are stored. The pool is now live and the hook can never be changed for it.",
+        body: "Starting price and tick are stored.",
       },
       {
         from: "pm",
@@ -285,7 +285,7 @@ const VIEWS: View[] = [
         label: "afterInitialize()",
         flag: "afterInitialize",
         title: "afterInitialize",
-        body: "Called only with the afterInitialize bit. Often used to record the pool or set initial hook state.",
+        body: "Often records the pool or sets hook state.",
       },
       {
         from: "pm",
@@ -293,7 +293,7 @@ const VIEWS: View[] = [
         kind: "return",
         label: "emit Initialize",
         title: "Initialize event",
-        body: "This event is what HookLens reads to discover every pool that uses a given hook.",
+        body: "HookLens uses it to discover a hook's pools.",
       },
     ],
   },
@@ -303,17 +303,17 @@ const NODES: Record<Lane, { name: string; sub: string; body: string }> = {
   router: {
     name: "Router",
     sub: "",
-    body: "The contract a user calls. It opens a session on the PoolManager and settles balances at the end.",
+    body: "Entry point. Opens a session and settles balances.",
   },
   pm: {
     name: "PoolManager",
     sub: "singleton, holds all pools",
-    body: "One contract holds every v4 pool. It enforces flash accounting and decides which hook callbacks to call from the hook address bits.",
+    body: "Singleton holding every v4 pool. Calls hooks by address bits.",
   },
   hook: {
     name: "Hook contract",
     sub: "fixed per pool in the PoolKey",
-    body: "Arbitrary code chosen by the pool creator. It only runs at the callbacks its address enables, but there it can revert, change fees or move tokens.",
+    body: "Pool creator's code. Runs only at enabled callbacks, where it can revert, change fees or move tokens.",
   },
 };
 
@@ -475,7 +475,7 @@ export function HookLifecycle() {
         </div>
         <p className="inline-flex items-center gap-1.5 rounded-full border border-violet/40 bg-violet/10 px-3 py-1 text-xs text-violet">
           <Info aria-hidden="true" className="size-3.5" />
-          Illustrative flow, not a live transaction
+          Illustrative
         </p>
       </div>
 
@@ -701,8 +701,7 @@ export function HookLifecycle() {
             ))}
           </ol>
           <p className="text-xs text-faint">
-            {hookCalls} of {steps.length} steps call the hook, and only if its address enables that callback. Use ← → to
-            step.
+            {hookCalls}/{steps.length} steps call the hook, if its bit is set · ← → to step
           </p>
         </div>
       </div>

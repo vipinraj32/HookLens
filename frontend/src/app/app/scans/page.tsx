@@ -11,7 +11,7 @@ export default function HookIntelligenceIndex() {
       <PageHeader
         eyebrow="Hook Intelligence"
         title="Analyzed hooks"
-        description="Open a scan to see its permission matrix, findings with evidence, proxy and dependency details, and discovered pools."
+        description="Permissions, findings and pools per hook."
       />
       <ScanTable title="Scans" filter={{ chain_id: network }} href={(s) => `/app/scans/${s.id}`} empty={<NoScans />} />
     </>

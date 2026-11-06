@@ -4,7 +4,7 @@ import { ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleSlash, XCircle } from 
 import type { ReactNode } from "react";
 
 import { HOOK_CALLBACKS, RevertMessage, TraceTree } from "@/components/trace";
-import { Badge, Card, CardBody, CardHeader, CodeBlock, KV, Mono, StatusBadge } from "@/components/ui";
+import { Badge, Card, CardBody, CardHeader, CodeBlock, InfoTip, KV, Mono, StatusBadge } from "@/components/ui";
 import type { Chain, Pool, ScenarioRun, Simulation, Step, Trace, TraceNode } from "@/lib/api/models";
 import { cn, formatUnits, groupDecimal, humanize } from "@/lib/format";
 
@@ -31,7 +31,7 @@ export function StepTimeline({ steps, selected, onSelect }: { steps: Step[]; sel
         <li key={`${g.phase}-${gi}`} className="relative pl-5">
           <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-6 w-px bg-line" />
           <p className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-faint">
-            <span aria-hidden="true" className="absolute left-0 top-1 size-[11px] rounded-full border-2 border-violet bg-bg" />
+            <span aria-hidden="true" className="absolute left-0 top-1 size-[11px] rounded-full border-2 border-line-strong bg-bg" />
             {humanize(g.phase)}
           </p>
           <ul className="flex flex-wrap gap-1.5">
@@ -50,7 +50,7 @@ export function StepTimeline({ steps, selected, onSelect }: { steps: Step[]; sel
                       t === "ok" && "border-ok/30 hover:border-ok/60",
                       t === "bad" && "border-bad/40 bg-bad/5 hover:border-bad/70",
                       t === "neutral" && "border-line hover:border-muted",
-                      selected === s.name && "bg-surface-2 ring-2 ring-accent",
+                      selected === s.name && "bg-surface-2 ring-1 ring-line-strong",
                     )}
                   >
                     <Icon aria-hidden="true" className={cn("size-3.5", t === "ok" ? "text-ok" : t === "bad" ? "text-bad" : "text-faint")} />
@@ -81,7 +81,7 @@ function DeltaRow({ symbol, raw, decimals, source }: { symbol: string; raw: stri
       <span
         className={cn(
           "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs",
-          zero ? "text-faint" : neg ? "bg-violet/10 text-violet" : "bg-accent/10 text-accent",
+          zero ? "text-faint" : neg ? "bg-surface-2 text-muted" : "bg-surface-2 text-fg",
         )}
       >
         {zero ? null : neg ? <ArrowUpRight aria-hidden="true" className="size-3.5" /> : <ArrowDownLeft aria-hidden="true" className="size-3.5" />}
@@ -104,15 +104,16 @@ export function TokenDeltas({ step, pool }: { step: Step; pool: Pool | undefined
   if (step.amount0 === undefined && step.amount1 === undefined) return null;
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Token deltas</p>
+      <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-faint">
+        Token deltas
+        <InfoTip label="Sign convention" align="start">
+          v4 BalanceDelta from the acting account: negative = paid into the pool, positive = received.
+        </InfoTip>
+      </p>
       <div className="flex flex-col gap-1.5">
         <DeltaRow symbol={pool?.token0?.symbol ?? "token0"} raw={step.amount0} decimals={pool?.token0?.decimals} source={pool?.token0?.decimals_source} />
         <DeltaRow symbol={pool?.token1?.symbol ?? "token1"} raw={step.amount1} decimals={pool?.token1?.decimals} source={pool?.token1?.decimals_source} />
       </div>
-      <p className="mt-1.5 text-[11px] text-faint">
-        Sign convention: v4 BalanceDelta from the acting account&apos;s side. Negative means the account paid tokens
-        into the pool; positive means it received tokens. Amounts are exact integers scaled by the token&apos;s decimals.
-      </p>
     </div>
   );
 }
@@ -180,7 +181,7 @@ export function StepDetail({ run, step, pool, hook }: { run: ScenarioRun; step: 
               {step.revert_chain.map((f, i, all) => (
                 <li key={f.idx} className="flex flex-wrap gap-2">
                   <span className="text-faint">{i + 1}.</span>
-                  <span className={f.address.toLowerCase() === hookLc ? "text-accent" : "text-violet"}>{f.label ?? f.address}</span>
+                  <span className={f.address.toLowerCase() === hookLc ? "text-fg" : "text-muted"}>{f.label ?? f.address}</span>
                   <span>{f.function?.split("(")[0] ?? f.selector}</span>
                   {i === all.length - 1 && f.revert?.message ? <span className="text-bad">→ {f.revert.message}</span> : null}
                 </li>
@@ -205,7 +206,7 @@ export function StepDetail({ run, step, pool, hook }: { run: ScenarioRun; step: 
           <p className="mb-1.5 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-faint">
             Trace explorer
             <span className="font-normal normal-case text-faint">
-              <span aria-hidden="true" className="mr-1 inline-block size-2 rounded-sm bg-accent/40" />
+              <span aria-hidden="true" className="mr-1 inline-block size-2 rounded-sm bg-accent/25" />
               hook callback frames
             </span>
           </p>
@@ -232,7 +233,7 @@ export function InvariantPanel({ run }: { run: ScenarioRun }) {
     <Card>
       <CardHeader
         title="Invariants evaluated"
-        description="Only checks the harness actually evaluated in this run are listed."
+        description="Only checks evaluated in this run."
       />
       <CardBody className="flex flex-col gap-4">
         {inv.length ? (
@@ -310,14 +311,14 @@ export function ForkContext({ sim, chain, run }: { sim: Simulation; chain: Chain
   if (meta.tick_lower !== undefined) rows.push(["Test position", `[${meta.tick_lower}, ${meta.tick_upper}) · start tick ${meta.initial_tick ?? "?"}`]);
   return (
     <Card>
-      <CardHeader title="Fork context" description="Everything this result depends on. RPC endpoints are server-side and never shown." />
+      <CardHeader title="Fork context" />
       <CardBody className="flex flex-col gap-4">
         <KV items={rows} />
         {run ? (
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Reproduce {humanize(run.scenario_id)}</p>
             <CodeBlock code={run.repro_command} />
-            <p className="mt-1.5 text-[11px] text-faint">Replace the RPC placeholder with your own archive endpoint or a local Anvil URL.</p>
+            <p className="mt-1.5 text-[11px] text-faint">Use your own archive RPC or a local Anvil URL.</p>
           </div>
         ) : null}
       </CardBody>

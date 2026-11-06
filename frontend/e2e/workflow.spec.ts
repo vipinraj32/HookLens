@@ -68,7 +68,6 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
   // ------------------------------------------------------------ adversarial lab
   await page.goto(`${scanUrl}/lab`);
   await expect(page.getByRole("heading", { name: "Configure a run" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "HookLens workflow" })).toBeVisible();
   // Run only the withdrawal scenario to keep the test fast.
   const boxes = page.getByRole("group", { name: "Scenarios" }).getByRole("checkbox");
   await expect(boxes).toHaveCount(6);

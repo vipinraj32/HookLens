@@ -94,7 +94,7 @@ function Explanations({ f }: { f: Finding }) {
     <section className="flex flex-col gap-3 rounded-lg border border-line p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <Sparkles aria-hidden="true" className="size-4 text-accent" /> Explanation
+          <Sparkles aria-hidden="true" className="size-4 text-muted" /> Explanation
         </h3>
         <Button size="sm" onClick={() => req.mutate()} loading={req.isPending} disabled={!!busy}>
           {latest ? "Regenerate" : "Explain this finding"}

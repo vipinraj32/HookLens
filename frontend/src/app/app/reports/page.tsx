@@ -24,7 +24,7 @@ export default function ReportsIndex() {
       <PageHeader
         eyebrow="Reports"
         title="Generated reports"
-        description="Versioned JSON reports with a content hash, and their PDF renderings. Generate one from a scan's Reports tab."
+        description="Hashed JSON and PDF. Generate from a scan."
       />
       <Card>
         <CardHeader

@@ -108,8 +108,8 @@ export function PermissionMatrix({ scan, findings }: { scan: Scan; findings: Fin
                       title={f.explanation ?? undefined}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left font-mono text-[11.5px] transition-colors",
-                        on ? (lp ? "border-warn/50 bg-warn/10 text-fg" : "border-accent/50 bg-accent/10 text-fg") : "border-line/70 text-faint hover:text-muted",
-                        sel === name && "ring-2 ring-violet",
+                        on ? (lp ? "border-warn/50 bg-warn/10 text-fg" : "border-line-strong bg-surface-2 text-fg") : "border-line/70 text-faint hover:text-muted",
+                        sel === name && "ring-1 ring-fg/40",
                       )}
                     >
                       <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", on ? (lp ? "bg-warn" : "bg-accent") : "bg-line")} />
@@ -172,8 +172,7 @@ export function PermissionMatrix({ scan, findings }: { scan: Scan; findings: Fin
                 ) : !sourceKnown ? (
                   <Notice tone="warn">
                     <HelpCircle aria-hidden="true" className="mr-1 inline size-4" />
-                    Unknown: what this callback does could not be analyzed because no verified source was available. The
-                    bit only shows that it runs.
+                    Unknown: no verified source. The bit only shows that it runs.
                   </Notice>
                 ) : null}
 
@@ -189,7 +188,7 @@ export function PermissionMatrix({ scan, findings }: { scan: Scan; findings: Fin
                         <li key={f.finding_id}>
                           <Link
                             href={`/app/scans/${scan.id}?finding=${f.finding_id}`}
-                            className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-sm hover:border-accent/50"
+                            className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1.5 text-sm transition-colors hover:border-line-strong hover:bg-surface-2"
                           >
                             <SeverityBadge severity={f.severity} />
                             <span className="min-w-0 flex-1 truncate">{f.title}</span>
@@ -222,7 +221,7 @@ export function PermissionMatrix({ scan, findings }: { scan: Scan; findings: Fin
                         <Link
                           key={sid}
                           href={`/app/scans/${scan.id}/lab?scenario=${sid}`}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-violet/40 px-3 py-1 text-xs text-violet hover:bg-violet/10"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-line-strong hover:text-fg"
                         >
                           <FlaskConical aria-hidden="true" className="size-3.5" /> {humanize(sid)}
                         </Link>
@@ -272,7 +271,7 @@ function RiskProfile({ scan, findings }: { scan: Scan; findings: Finding[] | und
 
   return (
     <Card>
-      <CardHeader title="Control & dependency profile" description="Read from the contract, its pools and the analyzer output. Not analyzed means unknown, never safe." />
+      <CardHeader title="Control & dependency profile" description="Not analyzed means unknown, never safe." />
       <CardBody>
         <KV
           items={[

@@ -76,13 +76,13 @@ export function PermissionDecoder() {
           />
           <p id={`${inputId}-hint`} className={cn("mt-2 text-xs", trimmed !== "" && !valid ? "text-bad" : "text-faint")}>
             {trimmed !== "" && !valid
-              ? "Enter a full address: 0x followed by 40 hex characters."
-              : "Decoded in your browser from the address bits. Nothing is sent anywhere."}
+              ? "0x followed by 40 hex characters."
+              : "Decoded locally. Nothing is sent."}
           </p>
         </div>
 
         <div>
-          <p className="text-xs text-faint">Try a HookLens test fixture (local Anvil):</p>
+          <p className="text-xs text-faint">Test fixtures (local Anvil):</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {PRESETS.map((p) => (
               <button
@@ -100,7 +100,7 @@ export function PermissionDecoder() {
 
         <div aria-live="polite" className="rounded-xl border border-line bg-bg p-4 text-sm">
           {!decoded ? (
-            <p className="text-muted">Paste an address to see which callbacks the PoolManager will call.</p>
+            <p className="text-muted">Paste an address to see its enabled callbacks.</p>
           ) : (
             <div className="flex flex-col gap-3">
               <p className="font-mono text-xs text-faint">
@@ -110,7 +110,7 @@ export function PermissionDecoder() {
               {enabled.length === 0 ? (
                 <p className="flex items-start gap-2 text-muted">
                   <CircleSlash aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                  No permission bits set: the PoolManager never calls this address as a hook.
+                  No permission bits set. Never called as a hook.
                 </p>
               ) : (
                 <p>
@@ -118,7 +118,7 @@ export function PermissionDecoder() {
                   {lpRelevant.length > 0 ? (
                     <>
                       , <strong className="text-warn">{lpRelevant.length}</strong>{" "}
-                      {lpRelevant.length === 1 ? "directly affects" : "directly affect"} what LPs can withdraw or receive.
+                      {lpRelevant.length === 1 ? "affects" : "affect"} LP withdrawals or payouts.
                     </>
                   ) : (
                     "."
@@ -128,15 +128,13 @@ export function PermissionDecoder() {
               {decoded.invalid.length > 0 ? (
                 <p className="flex items-start gap-2 text-bad">
                   <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                  Invalid set: {decoded.invalid.map((f) => f.name).join(", ")} without the matching base callback. v4
-                  rejects this at pool initialization.
+                  Invalid set: {decoded.invalid.map((f) => f.name).join(", ")} without its base callback. Rejected at initialization.
                 </p>
               ) : null}
               <p className="flex items-start gap-2 text-xs text-faint">
                 <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                 <span>
-                  Bits only say <em>which</em> callbacks run, not what they do. A full scan analyses the code behind
-                  them.
+                  Bits show <em>which</em> callbacks run, not what they do.
                 </span>
               </p>
               <Link

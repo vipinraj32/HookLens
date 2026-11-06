@@ -34,7 +34,7 @@ export function EvidenceView() {
       <PageHeader
         eyebrow="Evidence explorer"
         title="Evidence"
-        description="Every finding cites evidence: source excerpts with line ranges, bytecode facts, on-chain state, permission bits and simulation steps."
+        description="Source, bytecode, on-chain state and simulation steps behind every finding."
       />
       <Card className="mb-6 p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_repeat(3,minmax(0,0.8fr))]">

@@ -18,7 +18,7 @@ function nextActions(latest: ScanSummary | undefined): Tile[] {
   const scan: Tile = {
     icon: ScanSearch,
     title: latest ? "Analyze another hook" : "Analyze your first hook",
-    body: "Paste a deployed v4 hook address. HookLens pins a block and decodes its permissions.",
+    body: "Paste a deployed v4 hook address.",
     href: "/app/scan",
     primary: !latest,
   };
@@ -30,7 +30,7 @@ function nextActions(latest: ScanSummary | undefined): Tile[] {
       {
         icon: ShieldAlert,
         title: `Follow the scan of ${hook}`,
-        body: `Status: ${latest.status}. Findings appear as soon as the analyzers finish.`,
+        body: `Status: ${latest.status}`,
         href: `/app/scans/${latest.id}`,
         primary: true,
       },
@@ -42,20 +42,20 @@ function nextActions(latest: ScanSummary | undefined): Tile[] {
     {
       icon: ShieldAlert,
       title: `Review ${hook}`,
-      body: n === undefined ? "Open the permission matrix and findings." : `${n} finding${n === 1 ? "" : "s"} to review, each with evidence.`,
+      body: n === undefined ? "Permissions and findings." : `${n} finding${n === 1 ? "" : "s"} to review`,
       href: `/app/scans/${latest.id}`,
       primary: true,
     },
     {
       icon: FlaskConical,
       title: "Run the Adversarial Lab",
-      body: "Execute fork scenarios against this hook's pool and inspect each step.",
+      body: "Run fork scenarios on its pool.",
       href: `/app/scans/${latest.id}/lab`,
     },
     {
       icon: Gauge,
       title: "Model an LP position",
-      body: "Exact v4 math for a range in one of its pools.",
+      body: "Exact v4 math for your range.",
       href: `/app/lp?scan=${latest.id}`,
     },
     scan,
@@ -73,7 +73,7 @@ export default function Overview() {
     <>
       <PageHeader
         title="Overview"
-        description="Scans in this browser's anonymous workspace. Nothing here is shared unless you export a report."
+        description="This browser's private workspace."
         actions={
           <Button variant="primary" asChild>
             <Link href="/app/scan">
@@ -92,11 +92,11 @@ export default function Overview() {
                   href={href}
                   className={cn(
                     "group flex h-full flex-col gap-2 rounded-2xl border p-4 transition-colors",
-                    primary ? "border-accent/50 bg-accent/10 hover:bg-accent/15" : "border-line bg-surface hover:border-violet/50 hover:bg-surface-2",
+                    primary ? "border-line-strong bg-surface-2 hover:border-accent/50" : "border-line bg-surface hover:border-line-strong hover:bg-surface-2",
                   )}
                 >
                   <span className="flex items-center justify-between">
-                    <Icon className={cn("size-5", primary ? "text-accent" : "text-violet")} />
+                    <Icon className={cn("size-5", primary ? "text-fg" : "text-muted")} />
                     <ArrowRight aria-hidden="true" className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
                   </span>
                   <span className="text-sm font-semibold">{title}</span>
@@ -107,10 +107,10 @@ export default function Overview() {
             <li>
               <Link
                 href="/app/reports"
-                className="group flex h-full flex-col gap-2 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-violet/50 hover:bg-surface-2"
+                className="group flex h-full flex-col gap-2 rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2"
               >
                 <span className="flex items-center justify-between">
-                  <FileText className="size-5 text-violet" />
+                  <FileText className="size-5 text-muted" />
                   <ArrowRight aria-hidden="true" className="size-4 text-faint" />
                 </span>
                 <span className="text-sm font-semibold">Reports</span>

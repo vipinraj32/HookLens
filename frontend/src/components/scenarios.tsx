@@ -1,9 +1,10 @@
 "use client";
 
 import { ArrowDownUp, Coins, FlaskConical, KeyRound, Lock, Radio, Scale } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 import type { ScenarioDef } from "@/lib/api/models";
+import { InfoTip } from "@/components/ui";
 import { cn, parseUtc } from "@/lib/format";
 import { OUTCOME, OUTCOMES, SCENARIO_LP, outcomeOf, type OutcomeClass } from "@/lib/outcomes";
 
@@ -70,53 +71,52 @@ export function ScenarioCard({
 }) {
   const lp = SCENARIO_LP[scenario.scenario_id];
   const selectable = onToggle !== undefined;
+  const boxId = useId();
   const body = (
     <>
-      <span className="flex items-start justify-between gap-3">
+      <span className="flex items-center gap-3">
         <span
           className={cn(
-            "grid size-9 shrink-0 place-items-center rounded-xl ring-1 transition-colors",
-            selected ? "bg-accent text-bg ring-accent" : "bg-accent/10 text-accent ring-accent/30",
+            "grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-colors",
+            selected ? "bg-surface-2 text-fg ring-line-strong" : "bg-surface-2 text-faint ring-line",
           )}
         >
           <ScenarioIcon id={scenario.scenario_id} className="size-4" />
         </span>
+        <span className="min-w-0 flex-1 text-sm font-semibold text-fg">{scenario.title}</span>
+        <InfoTip label={`What ${scenario.title} runs`} align="end">
+          {scenario.description}
+        </InfoTip>
         {selectable ? (
           <input
+            id={boxId}
             type="checkbox"
-            className="mt-1 size-4 accent-[var(--color-accent)]"
+            className="size-4 shrink-0 accent-[var(--color-accent)]"
             checked={!!selected}
             onChange={(e) => onToggle(e.target.checked)}
           />
         ) : null}
       </span>
-      <span className="mt-3 block text-sm font-semibold text-fg">{scenario.title}</span>
-      <span className="mt-1 block text-xs leading-relaxed text-muted">{scenario.description}</span>
-      {lp ? (
-        <span className="mt-3 block border-t border-line pt-3 text-xs leading-relaxed text-muted">
-          <span className="font-medium text-fg">Why it matters to LPs. </span>
-          {lp.why}
-        </span>
-      ) : null}
+      {lp ? <span className="mt-2 block text-xs text-muted">{lp.why}</span> : null}
       {lastStatus || footer ? (
         <span className="mt-auto flex flex-wrap items-center gap-2 pt-3">
-          {lastStatus ? (
-            <>
-              <span className="text-[11px] text-faint">Latest run</span>
-              <OutcomeBadge status={lastStatus} />
-            </>
-          ) : null}
+          {lastStatus ? <OutcomeBadge status={lastStatus} /> : null}
           {footer}
         </span>
       ) : null}
     </>
   );
   const cls = cn(
-    "flex h-full flex-col rounded-2xl border p-4 transition-colors",
+    "flex h-full flex-col rounded-xl border p-3.5 transition-colors",
     selectable && "cursor-pointer",
-    selected ? "border-accent/70 bg-accent/[0.06]" : "border-line bg-surface hover:border-line-strong",
+    selected ? "border-accent/45 bg-surface-2/70" : "border-line bg-surface hover:border-line-strong hover:bg-surface-2/40",
   );
-  return selectable ? <label className={cls}>{body}</label> : <div className={cls}>{body}</div>;
+  return selectable ? (
+    // htmlFor is required: the InfoTip button is also labelable and would otherwise take the label.
+    <label htmlFor={boxId} className={cls}>
+      {body}
+    </label>
+  ) : <div className={cls}>{body}</div>;
 }
 
 /** Elapsed time since `from` (ISO, UTC), ticking while `running`; fixed at `to` when given. */

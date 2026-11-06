@@ -25,7 +25,6 @@ import {
   StatusBadge,
   inputClass,
 } from "@/components/ui";
-import { ScanWorkflow } from "@/components/workflow";
 import {
   isTerminal,
   keys,
@@ -80,14 +79,10 @@ function LabConsole({ scan, chain, poolId }: { scan: Scan; chain: Chain | undefi
     >
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-accent">
+          <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-faint">
             <FlaskConical aria-hidden="true" className="size-3.5" /> Adversarial Lab
           </p>
           <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight">{scan.contract?.contract_name ?? "Hook"}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted">
-            Foundry scenarios against the real PoolManager on a fork at the scan&apos;s pinned block. Every status is a
-            forge outcome, not a prediction.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
@@ -190,8 +185,7 @@ function RunForm({
   if (scan.pools.length === 0) {
     return (
       <EmptyState title="No pool to simulate">
-        Simulations fork the chain and exercise a real pool that uses this hook. This scan found no initialized pool, so
-        no scenario can run. Re-scan with a pool ID if you know one.
+        No initialized pool found. Re-scan with a pool ID.
       </EmptyState>
     );
   }
@@ -217,7 +211,7 @@ function RunForm({
           </span>
           {scenarios.data ? (
             <span className="flex gap-1 text-xs font-normal">
-              <button type="button" className="rounded-md px-2 py-1 text-accent hover:bg-accent/10" onClick={() => setSelected(new Set(all))}>
+              <button type="button" className="rounded-md px-2 py-1 text-fg hover:bg-surface-2" onClick={() => setSelected(new Set(all))}>
                 Select all
               </button>
               <button type="button" className="rounded-md px-2 py-1 text-muted hover:bg-surface-2" onClick={() => setSelected(new Set())}>
@@ -229,7 +223,7 @@ function RunForm({
         {scenarios.isPending ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }, (_, i) => (
-              <Skeleton key={i} className="h-48" />
+              <Skeleton key={i} className="h-24" />
             ))}
           </div>
         ) : null}
@@ -253,11 +247,8 @@ function RunForm({
       </fieldset>
 
       <details className="group rounded-xl border border-line bg-bg/40 p-3 open:bg-bg/60">
-        <summary className="cursor-pointer text-sm text-muted hover:text-fg">Position & swap parameters (optional)</summary>
-        <p className="mt-2 text-xs text-faint">
-          Leave blank for the harness defaults: ±100 tick spacings around the current tick, 10 whole tokens per side
-          sized with exact v4 math. Amounts are raw integer token units.
-        </p>
+        <summary className="cursor-pointer text-sm text-muted hover:text-fg">Advanced parameters</summary>
+        <p className="mt-2 text-xs text-faint">Blank = defaults (±100 tick spacings, 10 tokens per side). Raw integer units.</p>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {(["tick_lower", "tick_upper", "liquidity", "amount0", "amount1", "swap_amount0", "swap_amount1"] as const).map((k) => (
             <Field key={k} id={`${id}-${k}`} label={humanize(k)}>
@@ -281,15 +272,14 @@ function RunForm({
       ) : null}
       {create.isError ? <ErrorState error={create.error} title="Simulation was not started" /> : null}
       {forgeMissing ? (
-        <Notice tone="warn">Foundry is not available on this server, so the simulation would fail before running.</Notice>
+        <Notice tone="warn">Foundry is unavailable on this server.</Notice>
       ) : null}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-3">
         <Button type="submit" variant="primary" loading={create.isPending} disabled={chosen.size === 0}>
           <Play aria-hidden="true" className="size-4" /> Run {chosen.size} scenario{chosen.size === 1 ? "" : "s"} on fork
         </Button>
         <p className="text-xs text-faint">
-          Runs on {poolLabel(pool)} at {scan.block_number ? `block ${scan.block_number}` : "the latest block"}. No keys are
-          used; privileged roles are impersonated inside the fork only.
+          {poolLabel(pool)} · {scan.block_number ? `block ${scan.block_number}` : "latest block"} · no keys used
         </p>
       </div>
     </form>
@@ -324,8 +314,8 @@ function RunDetail({
   if (summary.status === "unsupported" || summary.status === "skipped") {
     return (
       <Notice>
-        <span className="font-medium">{humanize(summary.scenario_id)} was not run.</span> {summary.status_reason} No valid
-        test was executed, so this says nothing about the hook either way.
+        <span className="font-medium">{humanize(summary.scenario_id)} was not run.</span> {summary.status_reason} Says nothing
+        about the hook.
       </Notice>
     );
   }
@@ -345,21 +335,20 @@ function RunDetail({
       </div>
       {INFRA.has(r.status) ? (
         <Notice tone="warn">
-          This is an infrastructure outcome ({humanize(r.status)}), not a finding about the hook. The scenario did not
-          complete, so nothing can be concluded from it.
+          Infrastructure outcome ({humanize(r.status)}). Says nothing about the hook.
         </Notice>
       ) : null}
       {r.error ? <ErrorState title="Run error" error={new Error(String((r.error as { message?: string }).message ?? JSON.stringify(r.error)))} /> : null}
 
       {r.steps.length ? (
         <Card>
-          <CardHeader title="Step timeline" description={`${r.steps.length} steps in execution order. Select one to inspect expected vs observed.`} />
+          <CardHeader title="Step timeline" description={`${r.steps.length} steps`} />
           <CardBody>
             <StepTimeline steps={r.steps} selected={step?.name ?? null} onSelect={(s) => setStepName(s.name)} />
           </CardBody>
         </Card>
       ) : (
-        <Notice>The harness recorded no steps for this run.</Notice>
+        <Notice>No steps recorded.</Notice>
       )}
 
       {step ? <StepDetail run={r} step={step} pool={pool} hook={hook} /> : null}
@@ -369,7 +358,7 @@ function RunDetail({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ForkContext sim={sim} chain={chain} run={r} />
         <Card>
-          <CardHeader title="Actors" description="Harness accounts. Privileged roles are impersonated inside the fork only; no keys are used." />
+          <CardHeader title="Actors" description="Roles impersonated in the fork. No keys." />
           <CardBody>
             {meta.actors && Object.keys(meta.actors).length ? (
               <KV items={Object.entries(meta.actors).map(([k, v]) => [k, <Mono key={k} value={v} />])} />
@@ -430,10 +419,10 @@ function SimulationDetail({ simId, scan }: { simId: string; scan: Scan }) {
   return (
     <div className="flex flex-col gap-5">
       {running && s.job_id ? (
-        <Card className="border-accent/40">
+        <Card className="border-line-strong">
           <CardBody>
             <p className="mb-3 text-xs text-muted">
-              Elapsed <Elapsed from={s.created_at} running /> · results appear only after the backend records them.
+              Elapsed <Elapsed from={s.created_at} running />
             </p>
             <JobProgress jobId={s.job_id} stream={stream} title="Simulation" />
           </CardBody>
@@ -486,12 +475,12 @@ function SimulationDetail({ simId, scan }: { simId: string; scan: Scan }) {
                       aria-label={`${humanize(r.scenario_id)}: ${o.label}`}
                       className={cn(
                         "flex h-full w-full flex-col gap-2 rounded-xl border p-3 text-left transition-colors",
-                        on ? "border-accent/70 bg-accent/[0.06]" : "border-line hover:border-line-strong hover:bg-surface-2/60",
+                        on ? "border-line-strong bg-surface-2" : "border-line hover:border-line-strong hover:bg-surface-2/60",
                       )}
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                          <ScenarioIcon id={r.scenario_id} className="size-4 shrink-0 text-accent" />
+                          <ScenarioIcon id={r.scenario_id} className="size-4 shrink-0 text-muted" />
                           <span className="truncate">{humanize(r.scenario_id)}</span>
                         </span>
                         <span className="shrink-0 text-[11px] tabular-nums text-faint">{formatDuration(r.duration_ms)}</span>
@@ -504,11 +493,11 @@ function SimulationDetail({ simId, scan }: { simId: string; scan: Scan }) {
               })}
             </ul>
           ) : (
-            <p className="text-sm text-faint">{running ? "Scenario runs appear as the backend records them." : "No scenario runs were recorded."}</p>
+            <p className="text-sm text-faint">{running ? "Waiting for results…" : "No runs recorded."}</p>
           )}
           <details className="rounded-xl border border-line bg-bg/40 p-3">
             <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-muted hover:text-fg">
-              <Info aria-hidden="true" className="size-3.5" /> What the outcomes mean
+              <Info aria-hidden="true" className="size-3.5" /> Outcome key
             </summary>
             <div className="mt-3">
               <OutcomeLegend />
@@ -520,7 +509,7 @@ function SimulationDetail({ simId, scan }: { simId: string; scan: Scan }) {
       {current && current.status !== "queued" && current.status !== "running" ? (
         <section aria-labelledby="evidence-h" id="execution-evidence" className="scroll-mt-20">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <ShieldAlert aria-hidden="true" className="size-4 text-accent" />
+            <ShieldAlert aria-hidden="true" className="size-4 text-muted" />
             <h2 id="evidence-h" className="text-base font-semibold">
               Execution evidence · {humanize(current.scenario_id)}
             </h2>
@@ -567,19 +556,15 @@ export function LabView() {
 
   return (
     <>
-      <ScanWorkflow scan={s} current="lab" />
       <LabConsole scan={s} chain={chain} poolId={pid} />
 
       <Card className="mb-6">
-        <CardHeader
-          title="Configure a run"
-          description="Pick the scenarios to execute. Each card says what it runs and why it matters to a liquidity provider."
-        />
+        <CardHeader title="Configure a run" />
         <CardBody>
           {ready ? (
             <RunForm scan={s} poolId={pid} setPoolId={setPoolId} lastByScenario={lastByScenario} onStarted={(sim) => setSimId(sim.id)} />
           ) : (
-            <Notice>{s.status === "failed" || s.status === "cancelled" ? "The scan did not complete, so there is nothing to simulate." : "Waiting for the scan to finish…"}</Notice>
+            <Notice>{s.status === "failed" || s.status === "cancelled" ? "Scan did not complete." : "Waiting for the scan to finish…"}</Notice>
           )}
         </CardBody>
       </Card>
@@ -605,7 +590,7 @@ export function LabView() {
                     aria-current={current === sim.id ? "true" : undefined}
                     className={cn(
                       "flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-2",
-                      current === sim.id && "bg-surface-2 ring-1 ring-accent/40",
+                      current === sim.id && "bg-surface-2 ring-1 ring-line-strong",
                     )}
                   >
                     <span className="flex items-center justify-between gap-2">
@@ -627,8 +612,7 @@ export function LabView() {
           ) : (
             <Card>
               <EmptyState title="No simulation yet" icon={<FlaskConical aria-hidden="true" className="size-8" />}>
-                Choose scenarios above and run them on a fork. Each scenario reports per-step expectations, decoded reverts,
-                a call trace, token deltas, and a command to reproduce it.
+                Pick scenarios above and run them.
               </EmptyState>
             </Card>
           )}

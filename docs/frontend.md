@@ -85,7 +85,6 @@ Shared components:
 | `components/landing/live-status.tsx` | Live server facts (chains with RPC status, Foundry, scenario count) |
 | `components/landing/hero-pipeline.tsx` | Illustrative hero pipeline (address → intelligence → lab → LP), labelled "no live data" |
 | `components/brand.tsx` | `BrandLogo`, `BrandMark`, `BrandHomeLink` |
-| `components/workflow.tsx` | Workflow stepper (address → intelligence → pools → lab → evidence → LP → report), derived from the scan, its simulations and its reports. LP exposure is never shown as done, because it is not stored |
 | `components/scenarios.tsx` | Scenario cards with LP rationale, `OutcomeBadge`, `OutcomeLegend`, `Elapsed` |
 | `lib/outcomes.ts` | Groups forge statuses into Passed / Failed / Inconclusive / Not run / Error. It never upgrades a status, and `unsupported` is never shown as passed |
 

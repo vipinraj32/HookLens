@@ -15,28 +15,24 @@ const STAGES = [
     title: "Hook address",
     lead: "Paste a deployed v4 hook.",
     produces: ["Block pinned", "Permission bits decoded", "Source or bytecode resolved"],
-    body: "HookLens resolves the contract at a pinned block, decodes which callbacks the PoolManager will call, and finds the pools that use it.",
   },
   {
     icon: ShieldAlert,
     title: "Hook intelligence",
     lead: "Static analysis with evidence.",
     produces: ["Admin powers", "Oracle dependencies", "Dynamic fees", "Return deltas", "Upgradeability"],
-    body: "Deterministic analyzers flag behaviour that can affect LPs. Every finding links to source lines or bytecode facts, and stays an indicator for review.",
   },
   {
     icon: FlaskConical,
     title: "Adversarial lab",
     lead: "Foundry scenarios on a fork.",
     produces: ["Withdrawal failure", "Oracle failure", "Fee escalation", "Admin & upgrade", "Accounting", "Ordering"],
-    body: "Scenarios run against the real PoolManager at the pinned block. Results are forge outcomes with steps, decoded reverts, token deltas and call traces.",
   },
   {
     icon: Gauge,
     title: "LP exposure",
     lead: "What it means for a position.",
     produces: ["Exact v4 math", "Measured hook effects", "Hypothetical price moves"],
-    body: "Your range and amounts are modelled with exact v4 math. Measured lab effects and hypothetical scenarios are labelled separately, never mixed.",
   },
 ] as const;
 
@@ -119,7 +115,6 @@ export function HeroPipeline() {
           <span className="font-mono text-xs text-accent">0{active + 1}</span> {stage.title}
           <span className="font-normal text-muted"> · {stage.lead}</span>
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-muted">{stage.body}</p>
         <ul aria-label="Produces" className="mt-3 flex flex-wrap gap-1.5">
           {stage.produces.map((p) => (
             <li key={p} className="rounded-full border border-accent/30 bg-accent/[0.07] px-2.5 py-0.5 text-[11px] text-fg">

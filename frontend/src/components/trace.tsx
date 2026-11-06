@@ -85,7 +85,7 @@ function NodeRow({
         className={cn(
           "group flex min-w-0 items-start gap-1.5 rounded px-1 py-0.5 font-mono text-[12px] hover:bg-surface-2",
           !node.success && "bg-bad/5",
-          isCallback && "bg-accent/15 ring-1 ring-accent/40",
+          isCallback && "bg-accent/[0.06] ring-1 ring-accent/25",
         )}
         style={{ paddingLeft: depth * 14 }}
       >
@@ -106,11 +106,11 @@ function NodeRow({
           {node.kind.toLowerCase()}
         </span>
         <span className="min-w-0 break-all">
-          <span className={isHook ? "font-semibold text-accent" : "text-violet"}>{who}</span>
+          <span className={isHook ? "font-semibold text-fg" : "text-muted"}>{who}</span>
           <span className="text-faint">.</span>
           <span className="text-fg">{node.function ? node.function.split("(")[0] : (node.selector ?? "fallback")}</span>
           <span className="text-faint">()</span>
-          {isCallback ? <span className="ml-2 rounded bg-accent px-1 text-[10px] font-medium text-bg">hook callback</span> : null}
+          {isCallback ? <span className="ml-2 rounded border border-accent/40 px-1 text-[10px] font-medium text-accent">hook callback</span> : null}
           {node.gas_used !== undefined ? <span className="ml-2 text-faint">gas {node.gas_used.toLocaleString()}</span> : null}
           {!node.success ? <span className="ml-2 text-bad">✗ {node.revert?.message ?? node.status ?? "revert"}</span> : null}
         </span>

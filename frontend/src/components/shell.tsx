@@ -98,10 +98,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                     className={cn(
                       "relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg",
                       active &&
-                        "bg-accent/10 text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent",
+                        "bg-surface-2 text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent",
                     )}
                   >
-                    <Icon aria-hidden="true" className={cn("size-4", active && "text-accent")} />
+                    <Icon aria-hidden="true" className={cn("size-4", active ? "text-fg" : "text-faint")} />
                     {label}
                   </Link>
                 </li>
@@ -173,7 +173,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
       <div className="mt-auto rounded-xl border border-line bg-bg/60 p-3">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-fg">
-          <Activity aria-hidden="true" className="size-3.5 text-accent" /> System
+          <Activity aria-hidden="true" className="size-3.5 text-faint" /> System
         </p>
         <SystemStatus />
       </div>
@@ -240,14 +240,14 @@ function NetworkSelect() {
           aria-hidden="true"
           className={cn(
             "pointer-events-none absolute left-2.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full",
-            current ? (current.rpc_configured ? "bg-ok" : "bg-warn") : "bg-violet",
+            current ? (current.rpc_configured ? "bg-ok" : "bg-warn") : "bg-faint",
           )}
         />
         <select
           value={network ?? ""}
           onChange={(e) => setNetwork(e.target.value ? Number(e.target.value) : null)}
           disabled={!chains.data}
-          className="h-9 max-w-[9.5rem] rounded-lg border border-line bg-surface pl-6 pr-2 text-sm text-fg hover:border-violet/60 sm:max-w-none"
+          className="h-9 max-w-[9.5rem] rounded-lg border border-line bg-surface pl-6 pr-2 text-sm text-fg hover:border-line-strong sm:max-w-none"
         >
           <option value="">All networks</option>
           {chains.data?.map((c) => (
@@ -404,8 +404,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <main id={mainId} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
         <footer className="border-t border-line px-6 py-4 text-xs text-faint">
-          HookLens presents deterministic analysis and fork-simulation results. It is not a security audit and does not
-          establish that a hook is safe.
+          Not a security audit. Results never establish that a hook is safe.
         </footer>
       </div>
     </div>

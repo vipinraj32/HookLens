@@ -5,10 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { ScanWorkflow } from "@/components/workflow";
 import { Badge, Button, Card, CardBody, CardHeader, CodeBlock, CopyButton, ErrorState, KV, Mono, Notice, PageHeader, SeverityBadge, Spinner, StatusBadge, TagBadge } from "@/components/ui";
 import { apiUrl } from "@/lib/api/client";
-import { useReport, useScan } from "@/lib/api/hooks";
+import { useReport } from "@/lib/api/hooks";
 import { SEVERITIES } from "@/lib/api/models";
 import { cn, formatDate, formatDuration, groupDecimal, humanize } from "@/lib/format";
 
@@ -93,7 +92,7 @@ function ReportFindings({ findings, scanId }: { findings: RFinding[]; scanId: st
               else next.add(s);
               setHidden(next);
             }}
-            className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", hidden.has(s) ? "border-line text-faint line-through" : "border-line text-fg hover:border-accent/50")}
+            className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", hidden.has(s) ? "border-line text-faint line-through" : "border-line text-fg hover:border-line-strong")}
           >
             {s} <span className="tabular-nums text-muted">{counts[s]}</span>
           </button>
@@ -142,11 +141,6 @@ function ReportFindings({ findings, scanId }: { findings: RFinding[]; scanId: st
   );
 }
 
-function ReportWorkflow({ scanId }: { scanId: string }) {
-  const scan = useScan(scanId);
-  return scan.data ? <ScanWorkflow scan={scan.data} current="report" /> : null;
-}
-
 export function ReportView() {
   const { id } = useParams<{ id: string }>();
   const rep = useReport(id);
@@ -161,7 +155,6 @@ export function ReportView() {
 
   return (
     <>
-      <ReportWorkflow scanId={r.scan_id} />
       <PageHeader
         eyebrow="Report"
         title={String(idn.contract_name ?? "Hook report")}
@@ -198,7 +191,7 @@ export function ReportView() {
 
       <section aria-label="Assumptions and limitations" className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="border-warn/30">
-          <CardHeader title="Assumptions" description="What these results take as given." />
+          <CardHeader title="Assumptions" />
           <CardBody>
             {(c.assumptions ?? []).length ? (
               <ul className="list-disc pl-5 text-sm text-muted">{(c.assumptions ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
@@ -208,7 +201,7 @@ export function ReportView() {
           </CardBody>
         </Card>
         <Card className="border-warn/30">
-          <CardHeader title="Limitations" description="Read these before relying on any result below." />
+          <CardHeader title="Limitations" description="Read before relying on results." />
           <CardBody>
             {(c.limitations ?? []).length ? (
               <ul className="list-disc pl-5 text-sm text-muted">{(c.limitations ?? []).map((a, i) => <li key={i}>{a}</li>)}</ul>
@@ -308,7 +301,7 @@ export function ReportView() {
 
       {c.reproduction ? (
         <Card className="mt-6">
-          <CardHeader title="Reproduction" description="Commands never contain RPC credentials; substitute your own endpoint." />
+          <CardHeader title="Reproduction" description="Use your own RPC endpoint." />
           <CardBody className="flex flex-col gap-3">
             {c.reproduction.scan ? <CodeBlock code={c.reproduction.scan} /> : null}
             {(c.reproduction.scenarios ?? []).map((cmd, i) => (

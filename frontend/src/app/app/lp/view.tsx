@@ -17,6 +17,7 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  InfoTip,
   Notice,
   PageHeader,
   Spinner,
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui";
 import { isTerminal, useCompare, useScan, useScans, useSimulations, type CompareBody } from "@/lib/api/hooks";
 import { RangeBar } from "@/components/range-bar";
-import { ScanWorkflow } from "@/components/workflow";
 import type { Compare, Pool, Tagged } from "@/lib/api/models";
 import { formatDate, groupDecimal, humanize } from "@/lib/format";
 
@@ -134,7 +134,7 @@ function Results({ r }: { r: Compare }) {
       </Card>
 
       <Card>
-        <CardHeader title="Price scenarios" description="Hypothetical instantaneous moves of the pool price." actions={<TagBadge tag="hypothetical" />} />
+        <CardHeader title="Price scenarios" description="Instant price moves." actions={<TagBadge tag="hypothetical" />} />
         <CardBody className="flex flex-col gap-4">
           <LpVsHoldChart data={r.price_scenarios} unit={t1} />
           <div className="overflow-x-auto rounded-lg border border-line">
@@ -176,10 +176,10 @@ function Results({ r }: { r: Compare }) {
       </Card>
 
       <Card>
-        <CardHeader title="Measured hook effects" description="From the selected fork simulation." actions={<TagBadge tag={fx?.tag === "unavailable" || !fx ? "unavailable" : "measured"} />} />
+        <CardHeader title="Measured hook effects" description="From the selected simulation." actions={<TagBadge tag={fx?.tag === "unavailable" || !fx ? "unavailable" : "measured"} />} />
         <CardBody className="flex flex-col gap-4">
           {!fx || fx.tag === "unavailable" ? (
-            <p className="text-sm text-muted">{fx?.reason ?? "No simulation selected. Run the Adversarial Lab to measure effects."}</p>
+            <p className="text-sm text-muted">{fx?.reason ?? "No simulation applied."}</p>
           ) : (
             <>
               <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -192,8 +192,7 @@ function Results({ r }: { r: Compare }) {
               </p>
               {fx.same_range_as_simulation === false ? (
                 <Notice tone="warn">
-                  The simulation used a different range and liquidity than this position. Whether an operation reverts
-                  transfers to your position; measured token amounts apply only qualitatively.
+                  Simulated with a different range. Reverts transfer to your position; amounts apply only qualitatively.
                 </Notice>
               ) : null}
               {fx.withdrawal_blocked_under?.length ? (
@@ -224,7 +223,7 @@ function Results({ r }: { r: Compare }) {
                   </ul>
                 </div>
               ) : (
-                <p className="text-sm text-ok">No tested condition blocked liquidity removal in this simulation.</p>
+                <p className="text-sm text-ok">No tested condition blocked removal.</p>
               )}
               {fx.withdrawal_succeeded_under?.length ? (
                 <p className="text-xs text-muted">
@@ -343,7 +342,7 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
       <Card className="h-fit">
-        <CardHeader title="Position" description="Every amount is computed with exact integer v4 math." />
+        <CardHeader title="Position" />
         <CardBody>
           <form noValidate onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field id={f("pool")} label="Pool" error={err.pool_id?.message}>
@@ -361,7 +360,7 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
               </p>
             ) : null}
 
-            <Field id={f("sim")} label="Apply simulation" hint="Measured effects from a completed Adversarial Lab run.">
+            <Field id={f("sim")} label="Apply simulation" hint="From a completed lab run.">
               <select id={f("sim")} className={inputClass} aria-describedby={`${f("sim")}-hint`} {...form.register("simulation_id")}>
                 <option value="">None</option>
                 {done.map((s) => (
@@ -421,9 +420,9 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
               </Field>
             </div>
             <p className="-mt-2 text-xs text-faint">
-              For a range around the current price, one token is enough: HookLens sizes the position from it and shows the other token needed. With both, the scarcer one decides. Out-of-range positions hold one token only.
+              In range, one token is enough; the other is computed. With both, the scarcer one decides.
             </p>
-            <Field id={f("moves")} label="Price moves (%)" hint="Hypothetical instant moves to compare against holding." error={err.moves?.message}>
+            <Field id={f("moves")} label="Price moves (%)" hint="Compared against holding." error={err.moves?.message}>
               <input id={f("moves")} className={`${inputClass} font-mono`} autoComplete="off" aria-invalid={err.moves ? true : undefined} aria-describedby={desc("moves", true)} {...form.register("moves")} />
             </Field>
             <div>
@@ -439,8 +438,7 @@ function LpForm({ scanId, initialPool, initialSim }: { scanId: string; initialPo
         {compare.data ? <Results r={compare.data} /> : !compare.isError ? (
           <Card>
             <EmptyState title="Describe a position">
-              Enter a range and token amounts. HookLens reads the pool at the scan&apos;s pinned block and, if you pick a
-              simulation, overlays what was measured on the fork.
+              Enter a range and amounts.
             </EmptyState>
           </Card>
         ) : null}
@@ -490,30 +488,25 @@ function ScanPicker() {
 }
 
 const TAG_LEGEND: [string, string, string][] = [
-  ["on-chain", "Measured", "Read from the chain at the scan's pinned block, or derived from it with exact v4 math."],
-  ["measured", "Measured", "Observed in an executed fork simulation that you selected."],
-  ["hypothetical", "Hypothetical", "Depends on your inputs or a stated assumption (your range, price moves)."],
-  ["unavailable", "Unavailable", "Cannot be computed honestly from the data available; the reason is shown."],
+  ["on-chain", "Measured", "Read at the pinned block, or exact v4 math on it."],
+  ["measured", "Measured", "Observed in the selected fork simulation."],
+  ["hypothetical", "Hypothetical", "Depends on your inputs (range, price moves)."],
+  ["unavailable", "Unavailable", "Not computable from available data; reason shown."],
 ];
 
 function TagLegend() {
   return (
-    <dl aria-label="How LP figures are labelled" className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      {TAG_LEGEND.map(([tag, kind, meaning]) => (
-        <div key={tag} className="rounded-xl border border-line bg-surface px-3.5 py-3">
-          <dt className="flex items-center gap-2 text-xs font-medium text-fg">
-            <TagBadge tag={tag} /> <span className="text-faint">{kind}</span>
-          </dt>
-          <dd className="mt-1.5 text-xs text-muted">{meaning}</dd>
-        </div>
+    <ul aria-label="How LP figures are labelled" className="mb-6 flex flex-wrap items-center gap-2">
+      {TAG_LEGEND.map(([tag, , meaning]) => (
+        <li key={tag} className="inline-flex items-center gap-0.5">
+          <TagBadge tag={tag} />
+          <InfoTip label={`What ${tag} means`} align="start">
+            {meaning}
+          </InfoTip>
+        </li>
       ))}
-    </dl>
+    </ul>
   );
-}
-
-function LpWorkflow({ scanId }: { scanId: string }) {
-  const scan = useScan(scanId);
-  return scan.data ? <ScanWorkflow scan={scan.data} current="lp" /> : null;
 }
 
 export function LpView() {
@@ -521,11 +514,10 @@ export function LpView() {
   const scanId = params.get("scan");
   return (
     <>
-      {scanId ? <LpWorkflow scanId={scanId} /> : null}
       <PageHeader
         eyebrow="LP exposure"
         title="What is this position exposed to?"
-        description="Baseline figures are exact v4 math on on-chain state. Price scenarios are hypothetical. Hook effects are measured only when you apply a simulation. Fee income is not forecast."
+        description="Exact v4 math on on-chain state. Fee income is not forecast."
       />
       <TagLegend />
       {scanId ? <LpForm key={scanId} scanId={scanId} initialPool={params.get("pool")} initialSim={params.get("sim")} /> : <ScanPicker />}

@@ -10,7 +10,6 @@ import { FindingDetail } from "@/components/finding-detail";
 import { JobProgress } from "@/components/job-progress";
 import { PermissionMatrix } from "@/components/permission-matrix";
 import { Tab, TabPanel, Tabs, TabsList } from "@/components/tabs";
-import { ScanWorkflow } from "@/components/workflow";
 import {
   Badge,
   Button,
@@ -89,8 +88,7 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
   if (findings.data.length === 0) {
     return (
       <EmptyState title="No findings">
-        The analyzers that ran produced no findings. This does not establish that the hook is safe; check the analyzer
-        coverage tab for anything that was skipped.
+        Not proof the hook is safe. Check analyzer coverage for skips.
       </EmptyState>
     );
   }
@@ -108,7 +106,7 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
                 onClick={() => setCat(c)}
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  cat === c ? "border-accent/60 bg-accent/10 text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg",
+                  cat === c ? "border-line-strong bg-surface-2 text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg",
                 )}
               >
                 {c === "all" ? "All categories" : humanize(c)} <span className="tabular-nums text-faint">{n}</span>
@@ -159,8 +157,8 @@ function FindingsPanel({ scan, initial }: { scan: Scan; initial: string | null }
                 onClick={() => setSelected(f.finding_id)}
                 aria-pressed={selected === f.finding_id}
                 className={cn(
-                  "flex w-full flex-col gap-1.5 rounded-lg border border-line bg-surface p-3 text-left hover:border-accent/50",
-                  selected === f.finding_id && "border-accent/70 bg-surface-2",
+                  "flex w-full flex-col gap-1.5 rounded-lg border border-line bg-surface p-3 text-left transition-colors hover:border-line-strong hover:bg-surface-2/60",
+                  selected === f.finding_id && "border-line-strong bg-surface-2",
                 )}
               >
                 <span className="flex flex-wrap items-center gap-1.5">
@@ -256,7 +254,7 @@ function PoolsPanel({ scan }: { scan: Scan }) {
       ) : null}
       {scan.pools.length === 0 ? (
         <EmptyState title="No pools found">
-          No initialized pool using this hook was found in the scanned range. Simulations and LP exposure need a pool.
+          None in the scanned range. Lab and LP exposure need a pool.
         </EmptyState>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -291,7 +289,7 @@ function ContractPanel({ scan }: { scan: Scan }) {
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title="Provenance" description="Everything was read at this pinned block." />
+        <CardHeader title="Provenance" description="Read at this pinned block." />
         <CardBody>
           <KV
             items={[
@@ -364,7 +362,7 @@ function ReportsPanel({ scan }: { scan: Scan }) {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader title="Generate report" description="Versioned JSON with a content hash, plus a PDF rendering." />
+        <CardHeader title="Generate report" description="Hashed JSON + PDF." />
         <CardBody className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1.5 text-sm">
             Include simulation
@@ -427,7 +425,6 @@ export function ScanView() {
 
   return (
     <>
-      <ScanWorkflow scan={s} current={tab === "pools" ? "pools" : tab === "reports" ? "report" : "intelligence"} />
       <PageHeader
         eyebrow="Hook intelligence"
         title={s.contract?.contract_name ?? "Hook"}
@@ -483,7 +480,7 @@ export function ScanView() {
       ) : null}
       {s.status === "partial" ? (
         <Notice tone="warn" className="mb-6">
-          This scan is partial: at least one analyzer failed or was skipped. See the Analyzers tab.
+          Partial scan: an analyzer failed or was skipped. See Analyzers.
         </Notice>
       ) : null}
 

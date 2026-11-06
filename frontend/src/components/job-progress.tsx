@@ -48,7 +48,7 @@ export function JobProgress({ jobId, stream, title }: { jobId: string; stream: J
                 aria-current={active ? "step" : undefined}
                 className={cn(
                   "rounded-full border px-2.5 py-0.5 font-mono text-[11px]",
-                  active ? "border-accent/60 bg-accent/10 text-fg" : "border-line text-muted",
+                  active ? "border-line-strong bg-surface-2 text-fg" : "border-line text-muted",
                 )}
               >
                 {st}
@@ -63,7 +63,7 @@ export function JobProgress({ jobId, stream, title }: { jobId: string; stream: J
         {events.map((e, i) => (
           <li key={`${e.ts}-${i}`} className="flex gap-3 py-0.5">
             <span className="shrink-0 text-faint">{parseUtc(e.ts).toLocaleTimeString()}</span>
-            <span className="w-24 shrink-0 truncate text-accent">{e.stage}</span>
+            <span className="w-24 shrink-0 truncate text-muted">{e.stage}</span>
             <span className={cn("min-w-0 break-words", e.level === "warning" ? "text-warn" : e.level === "error" ? "text-bad" : "text-fg/90")}>
               {e.message}
             </span>

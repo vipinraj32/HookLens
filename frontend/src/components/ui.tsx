@@ -2,8 +2,8 @@
 
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { AlertTriangle, Check, Copy, Inbox, Loader2, RefreshCw } from "lucide-react";
-import { forwardRef, useState, type ComponentProps, type ReactNode } from "react";
+import { AlertTriangle, Check, Copy, Inbox, Info, Loader2, RefreshCw } from "lucide-react";
+import { forwardRef, useId, useState, type ComponentProps, type ReactNode } from "react";
 
 import { errorMessage, isApiError } from "@/lib/api/client";
 import { cn } from "@/lib/format";
@@ -155,7 +155,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
 }
 
 const TAG_TONE: Record<string, string> = {
-  "on-chain": "text-accent border-accent/40",
+  "on-chain": "text-fg border-line-strong",
   measured: "text-ok border-ok/40",
   hypothetical: "text-warn border-warn/40",
   unavailable: "text-faint border-line",
@@ -163,7 +163,7 @@ const TAG_TONE: Record<string, string> = {
   bytecode: "text-sev-low border-sev-low/40",
   simulation: "text-ok border-ok/40",
   metadata: "text-muted border-line",
-  "rpc-state": "text-accent border-accent/40",
+  "rpc-state": "text-fg border-line-strong",
 };
 
 /** Provenance / confidence-basis tag. */
@@ -336,7 +336,7 @@ export function PageHeader({ title, description, actions, eyebrow }: { title: Re
   return (
     <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
       <div className="min-w-0">
-        {eyebrow ? <div className="mb-1 text-xs font-medium uppercase tracking-wider text-accent">{eyebrow}</div> : null}
+        {eyebrow ? <div className="mb-1 text-xs font-medium uppercase tracking-wider text-faint">{eyebrow}</div> : null}
         <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
         {description ? <div className="mt-1.5 max-w-3xl text-sm text-muted">{description}</div> : null}
       </div>
@@ -382,3 +382,46 @@ export function Field({
 
 export const inputClass =
   "field-input h-10 w-full rounded-md border border-line bg-bg px-3 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none aria-[invalid=true]:border-bad";
+
+// ---------------------------------------------------------------- tooltip
+
+/**
+ * Info icon with a tooltip on hover or keyboard focus. Detail lives here instead of in visible
+ * helper text. The tooltip is display:none when closed, so it never widens the page.
+ */
+export function InfoTip({
+  children,
+  label = "More information",
+  align = "center",
+  className,
+}: {
+  children: ReactNode;
+  label?: string;
+  align?: "center" | "start" | "end";
+  className?: string;
+}) {
+  const id = useId();
+  const pos = { center: "left-1/2 -translate-x-1/2", start: "left-0", end: "right-0" }[align];
+  return (
+    <span className={cn("group/tip relative inline-flex align-middle", className)}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-describedby={id}
+        className="inline-flex size-5 items-center justify-center rounded-full text-faint transition-colors hover:text-fg focus-visible:text-fg"
+      >
+        <Info aria-hidden="true" className="size-3.5" />
+      </button>
+      <span
+        role="tooltip"
+        id={id}
+        className={cn(
+          "absolute bottom-full z-40 mb-2 hidden w-64 max-w-[80vw] rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-muted shadow-xl shadow-black/40 group-focus-within/tip:block group-hover/tip:block",
+          pos,
+        )}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}

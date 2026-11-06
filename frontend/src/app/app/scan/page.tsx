@@ -64,7 +64,7 @@ function PermissionPreview({ address }: { address: string }) {
       {d.enabled_flags.length ? (
         <div className="flex flex-wrap gap-1">
           {d.enabled_flags.map((f) => (
-            <Badge key={f} className="font-mono text-accent">
+            <Badge key={f} className="font-mono text-fg">
               {f}
             </Badge>
           ))}
@@ -135,7 +135,7 @@ export default function ScanPage() {
       <PageHeader
         eyebrow="Hook Scanner"
         title="Scan a Uniswap v4 hook"
-        description="Resolves the contract at a pinned block, decodes permissions, fetches or matches source, discovers pools and runs the deterministic analyzers. No wallet is needed."
+        description="Paste a deployed hook. No wallet needed."
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
@@ -221,7 +221,7 @@ export default function ScanPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Progress" description={scanId ? "Stages and messages streamed from the backend job." : "Live job events appear here once a scan starts. A scan runs these stages:"} />
+          <CardHeader title="Progress" description={scanId ? undefined : "Stages"} />
           <CardBody>
             {jobId ? (
               <div className="flex flex-col gap-4">
