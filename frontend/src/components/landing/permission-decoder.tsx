@@ -90,7 +90,7 @@ export function PermissionDecoder() {
                 type="button"
                 onClick={() => setValue(p.address)}
                 aria-pressed={trimmed.toLowerCase() === p.address.toLowerCase()}
-                className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-accent/60 hover:text-fg aria-pressed:border-accent aria-pressed:bg-accent/10 aria-pressed:text-fg"
+                className="rounded-full border border-line px-3 py-1 text-xs text-muted transition-colors hover:border-line-strong hover:text-fg aria-pressed:border-fg/60 aria-pressed:bg-surface-2 aria-pressed:text-fg"
               >
                 {p.label}
               </button>
@@ -139,7 +139,7 @@ export function PermissionDecoder() {
               </p>
               <Link
                 href="/app/scan"
-                className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-fg underline-offset-4 hover:underline"
               >
                 Run a full scan <ArrowRight aria-hidden="true" className="size-4" />
               </Link>

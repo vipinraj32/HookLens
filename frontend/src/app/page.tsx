@@ -105,7 +105,7 @@ export default function Landing() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link
                   href="/app/scan"
-                  className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-sm font-semibold text-bg shadow-[0_10px_40px_-12px_rgb(255_0_153/0.7)] transition-colors hover:bg-accent-strong"
+                  className="inline-flex h-12 items-center gap-2 rounded-full bg-fg px-6 text-sm font-semibold text-bg transition-colors hover:bg-white"
                 >
                   Analyze a Hook <ArrowRight aria-hidden="true" className="size-4" />
                 </Link>
@@ -131,9 +131,9 @@ export default function Landing() {
                   {i > 0 ? <span aria-hidden="true" className="h-px w-4 bg-line-strong sm:w-6" /> : null}
                   <Link
                     href={href}
-                    className="group inline-flex items-center gap-2 rounded-full border border-line bg-bg/60 py-1.5 pl-1.5 pr-3.5 text-sm transition-colors hover:border-accent/60 hover:bg-surface-2"
+                    className="group inline-flex items-center gap-2 rounded-full border border-line bg-bg/60 py-1.5 pl-1.5 pr-3.5 text-sm transition-colors hover:border-line-strong hover:bg-surface-2"
                   >
-                    <span className="grid size-7 place-items-center rounded-full bg-accent/10 text-accent transition-colors group-hover:bg-accent group-hover:text-bg">
+                    <span className="grid size-7 place-items-center rounded-full bg-surface-2 text-muted transition-colors group-hover:bg-fg group-hover:text-bg">
                       <Icon aria-hidden="true" className="size-3.5" />
                     </span>
                     {title}
@@ -146,14 +146,14 @@ export default function Landing() {
                 <li key={title}>
                   <Link
                     href={href}
-                    className="group flex h-full items-start gap-4 rounded-2xl border border-accent/20 bg-gradient-to-b from-accent/[0.07] to-transparent p-5 transition-colors hover:border-accent/50"
+                    className="group flex h-full items-start gap-4 rounded-2xl border border-line bg-surface/60 p-5 transition-colors hover:border-line-strong hover:bg-surface-2"
                   >
                     <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold">{title}</span>
                       <span className="mt-1 block text-sm text-muted">{body}</span>
                     </span>
-                    <ArrowRight aria-hidden="true" className="mt-1 size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
+                    <ArrowRight aria-hidden="true" className="mt-1 size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
                   </Link>
                 </li>
               ))}

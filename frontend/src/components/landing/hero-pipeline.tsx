@@ -68,7 +68,7 @@ export function HeroPipeline() {
       onBlur={(e) => {
         if (!root.current?.contains(e.relatedTarget as Node | null)) setPaused(false);
       }}
-      className="hero-pipeline relative overflow-hidden rounded-3xl border border-line bg-surface/80 p-5 shadow-[0_30px_80px_-40px_rgb(255_0_153/0.45)] sm:p-6"
+      className="hero-pipeline relative overflow-hidden rounded-3xl border border-line bg-surface/80 p-5 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.6)] sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono text-[11px] uppercase tracking-widest text-faint">HookLens pipeline</p>
@@ -96,7 +96,7 @@ export function HeroPipeline() {
                 className={cn(
                   "relative grid size-10 place-items-center rounded-full border transition-all",
                   on
-                    ? "scale-110 border-accent bg-accent text-bg shadow-[0_0_0_6px_rgb(255_0_153/0.15)]"
+                    ? "scale-110 border-fg bg-fg text-bg shadow-[0_0_0_6px_rgb(244_241_246/0.08)]"
                     : done
                       ? "border-accent/60 bg-surface-2 text-accent"
                       : "border-line bg-surface-2 text-muted hover:border-line-strong hover:text-fg",

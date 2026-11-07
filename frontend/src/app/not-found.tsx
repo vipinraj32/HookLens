@@ -9,7 +9,7 @@ export default function NotFound() {
         <BrandMark size={40} decorative />
         <p className="mt-5 font-mono text-sm text-accent">404</p>
         <h1 className="mt-2 text-xl font-semibold">Page not found</h1>
-        <Link href="/app" className="mt-4 inline-block text-sm text-accent hover:underline">
+        <Link href="/app" className="mt-4 inline-block text-sm text-fg underline-offset-4 hover:underline">
           Go to the dashboard
         </Link>
       </div>

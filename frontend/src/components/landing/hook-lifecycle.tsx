@@ -466,7 +466,7 @@ export function HookLifecycle() {
               onClick={() => selectView(v.id)}
               className={cn(
                 "rounded-lg px-3.5 py-1.5 text-sm transition-colors",
-                v.id === viewId ? "bg-accent/15 text-fg ring-1 ring-accent/50" : "text-muted hover:text-fg",
+                v.id === viewId ? "bg-surface-2 text-fg ring-1 ring-line-strong" : "text-muted hover:text-fg",
               )}
             >
               {v.label}
@@ -609,7 +609,7 @@ export function HookLifecycle() {
                 <p className="font-mono text-xs uppercase tracking-widest text-violet">Component</p>
                 <h3 className="mt-2 text-lg font-semibold">{detailNode.name}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{detailNode.body}</p>
-                <button type="button" onClick={() => setNodeFocus(null)} className="mt-4 text-sm text-accent hover:underline">
+                <button type="button" onClick={() => setNodeFocus(null)} className="mt-4 text-sm text-fg underline-offset-4 hover:underline">
                   Back to step {stepIdx + 1}
                 </button>
               </>
@@ -649,7 +649,7 @@ export function HookLifecycle() {
               <button
                 type="button"
                 onClick={() => go(stepIdx + 1)}
-                className="inline-flex h-10 items-center gap-1 rounded-lg bg-accent px-4 text-sm font-medium text-bg hover:bg-accent-strong"
+                className="inline-flex h-10 items-center gap-1 rounded-lg bg-fg px-4 text-sm font-medium text-bg hover:bg-white"
               >
                 Next <ChevronRight aria-hidden="true" className="size-4" />
               </button>
@@ -657,7 +657,7 @@ export function HookLifecycle() {
               <button
                 type="button"
                 onClick={() => go(0)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-medium text-bg hover:bg-accent-strong"
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-fg px-4 text-sm font-medium text-bg hover:bg-white"
               >
                 <RotateCcw aria-hidden="true" className="size-4" /> Restart
               </button>
