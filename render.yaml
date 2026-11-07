@@ -17,6 +17,7 @@ services:
     region: oregon
     plan: free
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: .
     dockerfilePath: ./docker/backend.Dockerfile
     dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
@@ -70,6 +71,7 @@ services:
     region: oregon
     plan: free
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: ./frontend
     dockerfilePath: ./docker/frontend.Dockerfile
     healthCheckPath: /

@@ -108,6 +108,8 @@ jobs:
       - run: forge build --sizes
       - run: forge test -vvv
         env: { FOUNDRY_PROFILE: ci }
+      - name: Generated permission constants match the vendored Hooks.sol
+        run: python3 ../backend/scripts/gen_permissions.py --check
 
   frontend:
     name: Frontend (lint, typecheck, vitest, build)

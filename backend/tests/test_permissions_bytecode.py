@@ -16,6 +16,9 @@ BACKEND = Path(__file__).resolve().parents[1]
 def test_generated_permissions_in_sync_with_v4_core() -> None:
     if not (BACKEND.parent / "contracts" / "lib" / "v4-periphery" / "lib" / "v4-core").exists():
         pytest.skip("v4-core submodule not checked out")
+    if not (BACKEND.parent / "contracts" / "out" / "IHooks.sol" / "IHooks.json").exists():
+        # The generator reads the compiled IHooks selectors; CI runs this check in the contracts job after forge build.
+        pytest.skip("contracts not built (run forge build in contracts/)")
     r = subprocess.run(
         [sys.executable, "scripts/gen_permissions.py", "--check"], cwd=BACKEND, capture_output=True, text=True
     )

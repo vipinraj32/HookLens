@@ -39,6 +39,7 @@ services:
     region: oregon
     plan: 0.5c-512mb
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: ./frontend
     dockerfilePath: ./docker/frontend.Dockerfile
     healthCheckPath: /
@@ -66,6 +67,7 @@ services:
     region: oregon
     plan: 0.5c-512mb
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: .
     dockerfilePath: ./docker/backend.Dockerfile
     dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
@@ -109,6 +111,7 @@ services:
     region: oregon
     plan: 1c-2g
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: .
     dockerfilePath: ./docker/backend.Dockerfile
     dockerCommand: celery -A app.worker.celery_app worker -Q default --concurrency=2 -B -s /tmp/celerybeat-schedule --loglevel=INFO
@@ -146,6 +149,7 @@ services:
     region: oregon
     plan: 2c-4g
     branch: main
+    autoDeployTrigger: checksPass # deploy only after the CI checks on the commit pass
     dockerContext: .
     dockerfilePath: ./docker/backend.Dockerfile
     dockerCommand: celery -A app.worker.celery_app worker -Q sim --concurrency=1 --loglevel=INFO
