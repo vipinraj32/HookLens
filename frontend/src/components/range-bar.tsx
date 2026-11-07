@@ -12,6 +12,7 @@ export function RangeBar({
   lowerLabel,
   upperLabel,
   currentLabel,
+  currentTag = "on-chain",
 }: {
   tickLower: number;
   tickUpper: number;
@@ -19,6 +20,8 @@ export function RangeBar({
   lowerLabel?: string;
   upperLabel?: string;
   currentLabel?: string;
+  /** Provenance of the current tick, e.g. live or historical. */
+  currentTag?: string;
 }) {
   const ticks = [tickLower, tickUpper, ...(currentTick === null || currentTick === undefined ? [] : [currentTick])];
   const lo = Math.min(...ticks);
@@ -36,7 +39,7 @@ export function RangeBar({
         <span className="font-medium text-fg">Position range</span>
         <span className={cn("rounded-full px-2 py-0.5", inRange ? "bg-ok/10 text-ok" : "bg-warn/10 text-warn")}>{state}</span>
         <span className="ml-auto flex items-center gap-1.5">
-          range <TagBadge tag="hypothetical" /> current tick <TagBadge tag="on-chain" />
+          range <TagBadge tag="hypothetical" /> current tick <TagBadge tag={currentTag} />
         </span>
       </figcaption>
       <svg viewBox="0 0 100 34" preserveAspectRatio="none" className="h-14 w-full" role="img"

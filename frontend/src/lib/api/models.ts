@@ -277,6 +277,8 @@ export const Step = z.looseObject({
   block_timestamp: z.number().optional(),
   note: z.string().optional(),
   step_status: z.string(),
+  withdrawal_outcome: z.enum(["completed", "blocked", "not_tested_no_position"]).optional(),
+  position_check: z.looseObject({ had_position: z.boolean().nullable(), basis: nstr }).optional(),
   revert: DecodedRevert.nullable().optional(),
   trace_nodes: z.array(z.number()).optional(),
   revert_chain: z.array(RevertFrame).optional(),
@@ -391,6 +393,25 @@ export const BlockedWithdrawal = z.looseObject({
 });
 export type BlockedWithdrawal = z.infer<typeof BlockedWithdrawal>;
 
+export const WithdrawalOutcome = z.looseObject({
+  scenario: z.string(),
+  step: z.string(),
+  condition: z.string().nullable().optional(),
+  outcome: z.enum(["completed", "blocked", "not_tested_no_position"]),
+  revert: z.string().nullable().optional(),
+  reason: z.string().optional(),
+});
+export type WithdrawalOutcome = z.infer<typeof WithdrawalOutcome>;
+
+export const PositionCreation = z.looseObject({
+  status: z.enum(["created", "rejected", "not_attempted"]),
+  step: z.string().nullable().optional(),
+  revert: z.string().nullable().optional(),
+  scenario: z.string().nullable().optional(),
+  fork_block: z.number().nullable().optional(),
+  tag: z.string().optional(),
+});
+
 export const SimulationEffects = z.looseObject({
   // When no simulation was selected the backend returns {tag: "unavailable", reason}.
   tag: z.string().optional(),
@@ -403,8 +424,24 @@ export const SimulationEffects = z.looseObject({
     .nullable()
     .optional(),
   same_range_as_simulation: z.boolean().optional(),
+  source: z.string().optional(),
+  fork_block_hash: z.string().nullable().optional(),
+  state_block: z.number().nullable().optional(),
+  blocks_since_simulation: z.number().nullable().optional(),
+  position_creation: PositionCreation.optional(),
+  withdrawal: z
+    .looseObject({
+      status: z.enum(["completed", "blocked", "not_tested", "unsupported", "execution_error"]),
+      tag: z.string().optional(),
+      outcomes: z.array(WithdrawalOutcome).optional(),
+      unsupported_scenarios: z.array(z.string()).optional(),
+      execution_error_scenarios: z.array(z.string()).optional(),
+    })
+    .optional(),
   withdrawal_blocked_under: z.array(BlockedWithdrawal).optional(),
   withdrawal_succeeded_under: z.array(z.string()).optional(),
+  withdrawal_recovered_after: z.array(z.string()).optional(),
+  withdrawal_not_tested: z.array(WithdrawalOutcome).optional(),
   round_trip: anyRecord.nullable().optional(),
   accounting: anyRecord.nullable().optional(),
   fee: z
@@ -418,6 +455,39 @@ export const SimulationEffects = z.looseObject({
     .optional(),
 });
 export type SimulationEffects = z.infer<typeof SimulationEffects>;
+
+/** Where pool state came from: the chain at its latest block, or a scan snapshot. */
+export const DataSource = z.looseObject({
+  source: z.enum(["live", "historical"]),
+  chain_id: z.number(),
+  chain_name: z.string().optional(),
+  pool_id: z.string().optional(),
+  block_number: z.number().nullable().optional(),
+  block_hash: z.string().nullable().optional(),
+  block_timestamp: z.number().nullable().optional(),
+  block_time: z.string().nullable().optional(),
+  fetched_at: z.string().nullable().optional(),
+});
+export type DataSource = z.infer<typeof DataSource>;
+
+export const LivePool = z.looseObject({
+  source: z.literal("live"),
+  chain_id: z.number(),
+  chain_name: z.string(),
+  pool_manager: z.string(),
+  pool_id: z.string(),
+  block_number: z.number(),
+  block_hash: z.string().nullable(),
+  block_timestamp: z.number().nullable(),
+  block_time: z.string().nullable(),
+  fetched_at: z.string(),
+  state: PoolState,
+  price: z.looseObject({ token1_per_token0: z.string(), token0_per_token1: z.string() }).nullable(),
+  token0: z.looseObject({ symbol: nstr, decimals: z.number().nullable().optional() }),
+  token1: z.looseObject({ symbol: nstr, decimals: z.number().nullable().optional() }),
+  scan_block_number: z.number().nullable().optional(),
+});
+export type LivePool = z.infer<typeof LivePool>;
 
 export const Compare = z.looseObject({
   position_id: z.string(),
@@ -436,6 +506,16 @@ export const Compare = z.looseObject({
   baseline: z.record(z.string(), Tagged),
   price_scenarios: z.array(PriceScenario),
   simulation_effects: SimulationEffects.nullable().optional(),
+  data_source: DataSource.optional(),
+  scenario_assumptions: z.array(z.string()).optional(),
+  position_kind: z
+    .looseObject({
+      kind: z.string(),
+      note: z.string(),
+      deposit_rejected_in_simulation: z.boolean().optional(),
+      rejection: z.looseObject({ step: nstr, revert: nstr, fork_block: z.number().nullable().optional() }).nullable().optional(),
+    })
+    .optional(),
   disclaimer: z.string(),
 });
 export type Compare = z.infer<typeof Compare>;

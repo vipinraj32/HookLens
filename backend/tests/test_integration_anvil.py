@@ -105,7 +105,19 @@ def test_oracle_hook_simulation_lp_and_report(client: Any, deployments: dict) ->
         },
     ).json()
     assert lp["baseline"]["range_state"]["value"] == "in-range"
-    assert {b["condition"] for b in lp["simulation_effects"]["withdrawal_blocked_under"]} >= {"oracle_revert"}
+    # Live state from the real node, at or after the scan's pinned block, with provenance.
+    src = lp["data_source"]
+    assert src["source"] == "live" and src["block_number"] >= scan["block_number"]
+    assert src["block_hash"] and src["fetched_at"] and lp["baseline"]["price"]["tag"] == "live"
+    # The oracle-gated hook accepts the deposit, so a removal that reverts is a genuine block.
+    eff = lp["simulation_effects"]
+    assert eff["position_creation"]["status"] == "created"
+    assert {b["condition"] for b in eff["withdrawal_blocked_under"]} >= {"oracle_revert"}
+    assert eff["withdrawal"]["status"] == "blocked"
+    blocked = [o for o in eff["withdrawal"]["outcomes"] if o["outcome"] == "blocked"]
+    assert blocked and all("CannotUpdateEmptyPosition" not in (o["revert"] or "") for o in blocked)
+    live = client.get(f"/v1/scans/{scan['id']}/pools/{scan['pools'][0]['pool_id']}/live").json()
+    assert live["source"] == "live" and live["chain_id"] == 31337 and live["block_hash"]
     assert lp["baseline"]["fee_income"]["tag"] == "unavailable"
 
     rep = client.post(

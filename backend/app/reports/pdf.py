@@ -188,6 +188,13 @@ def render_pdf(c: dict[str, Any], content_hash: str, path: Path) -> None:
                     body,
                 )
             )
+        for n in eff.get("withdrawal_not_tested", []):
+            story.append(
+                _p(
+                    f"Withdrawal not tested in {n['step']}: no position was created, so nothing could be withdrawn.",
+                    body,
+                )
+            )
         story.append(_p(lp.get("disclaimer", ""), small))
 
     if c.get("evidence"):

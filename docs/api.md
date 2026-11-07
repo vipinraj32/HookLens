@@ -39,7 +39,8 @@ with `npm run gen:api`.
 | GET | `/v1/simulations/{id}/runs/{run_id}` | One scenario run: steps, decoded trace, repro command |
 | GET | `/v1/evidence?scan_id=` | Search a scan's evidence: `q`, `kind`, `basis`, `function`, `simulation_id`, `ids` (comma-separated), with `limit` up to 200 |
 | GET | `/v1/evidence/{scan_id}/{evidence_id}` | One evidence record |
-| POST | `/v1/positions/compare` | LP baseline, hypothetical price moves and measured simulation effects |
+| GET | `/v1/scans/{id}/pools/{pool_id}/live?refresh=` | Pool state read from the PoolManager at the chain's latest block, with `chain_id`, `block_number`, `block_hash`, `block_timestamp` and `fetched_at`. Returns 503 `live_state_unavailable` on RPC failure (never older data) and 404 `pool_not_initialized` |
+| POST | `/v1/positions/compare` | LP baseline, hypothetical price moves and measured simulation effects. `state_source` is `live` (default: latest block) or `scan` (the scan's pinned snapshot). The response's `data_source` records which, with block provenance |
 | GET | `/v1/positions/{id}` | A stored comparison |
 | POST / GET | `/v1/scans/{id}/reports` | Generate a report, or list reports |
 | GET | `/v1/reports?offset=&limit=&chain_id=` | All reports in the workspace, newest first, with `chain_id` and `hook_address` (no report content) |

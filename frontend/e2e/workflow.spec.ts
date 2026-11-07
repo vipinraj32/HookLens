@@ -102,9 +102,17 @@ test("scan, simulate, measure LP exposure and export a report", async ({ page },
   await page.getByLabel("hlUSD amount").fill("2000");
   await page.getByRole("button", { name: "Compute exposure" }).click();
 
-  await expect(page.getByRole("heading", { name: "Baseline position" })).toBeVisible();
-  await expect(page.getByText(/Withdrawal blocked under \d+ condition/)).toBeVisible();
-  await expect(page.getByText("Fee income", { exact: true })).toBeVisible();
+  // Live state: chain head read through the server's RPC, with block provenance.
+  const liveBar = page.getByRole("region", { name: "Live pool state" });
+  await expect(liveBar.getByText(/^block \d/)).toBeVisible();
+  await expect(liveBar.getByRole("button", { name: "Refresh live pool state" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Modelled position" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Historical simulation" })).toBeVisible();
+  // The fixture accepts deposits, so the blocked removal is a genuine withdrawal block.
+  await expect(page.getByText("Position created", { exact: true })).toBeVisible();
+  await expect(page.getByText("Withdrawal blocked (position existed)")).toBeVisible();
+  await expect(page.getByText(/^Blocked under /).first()).toBeVisible();
+  await expect(page.getByText(/^Fee income/).first()).toBeVisible();
   await expect(page.getByRole("table", { name: /LP value vs hold value/ })).toBeVisible();
   await shot("lp-exposure");
 

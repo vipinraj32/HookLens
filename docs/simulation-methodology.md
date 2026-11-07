@@ -70,6 +70,13 @@ The run status is derived from its steps:
   results were recorded.
 - **`skipped`, `unsupported`, `timed_out`, `cancelled`.** These mean what they say.
 
+**Position awareness (harness 1.1.0).** Removal steps record `position_liquidity_before`. A step
+that ran with no position (that metric is 0, or for older runs the PoolManager reverted with
+`CannotUpdateEmptyPosition()`) gets step status `not_tested`. It is not a violation and produces no
+finding: if the add was rejected (for example `LiquidityNotAllowed()`), withdrawals were simply not
+tested. Run details annotate stored steps at read time with `position_check` and
+`withdrawal_outcome`.
+
 Observed findings with confidence basis `simulation` are derived from violated steps and from
 measured fee changes (`app/simulation/interpret.py`).
 

@@ -16,6 +16,7 @@ from app.db.models import Evidence, ScenarioRun, Simulation
 from app.errors import NotFound
 from app.services import simulation_service as sims
 from app.simulation.catalog import DEFAULT_ORDER, SCENARIOS
+from app.simulation.positions import annotate_steps
 
 router = APIRouter(prefix="/v1")
 
@@ -60,12 +61,16 @@ def get_simulation(sim_id: str, db: Session = Depends(get_db), ws: str = Depends
 
 
 @router.get("/simulations/{sim_id}/runs/{run_id}", tags=["simulations"], response_model=S.ScenarioRunOut)
-def get_run(sim_id: str, run_id: str, db: Session = Depends(get_db), ws: str = Depends(workspace)) -> ScenarioRun:
+def get_run(sim_id: str, run_id: str, db: Session = Depends(get_db), ws: str = Depends(workspace)) -> S.ScenarioRunOut:
     sims.get_simulation(db, ws, sim_id)
     run = db.get(ScenarioRun, run_id)
     if run is None or run.simulation_id != sim_id:
         raise NotFound("scenario run", run_id)
-    return run
+    out = S.ScenarioRunOut.model_validate(run)
+    # Position-aware reading of the recorded steps (the stored evidence itself is not modified):
+    # removals that had no position to remove are marked not tested, never as blocked withdrawals.
+    out.steps = annotate_steps(list(run.steps or []))
+    return out
 
 
 @router.get("/evidence", tags=["evidence"], response_model=S.Page[S.EvidenceOut])

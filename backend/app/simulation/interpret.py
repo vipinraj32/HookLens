@@ -16,6 +16,7 @@ from typing import Any
 from app.simulation.catalog import ScenarioDef
 from app.simulation.decode import Registry, decode_revert
 from app.simulation.forge_runner import ForgeRun
+from app.simulation.positions import had_no_position, position_creation
 from app.simulation.traces import TraceParseError, first_revert_chain, parse_test_result
 from hooklens.analyzers.core import Collector, ConfidenceBasis, FindingStatus, Severity
 
@@ -50,6 +51,9 @@ class Interpretation:
 
 def step_status(step: dict[str, Any]) -> str:
     exp, obs = step.get("lp_expectation"), step.get("observed")
+    # No LP position existed (an earlier add failed): the step tested nothing about the hook.
+    if had_no_position(step):
+        return "not_tested"
     if exp == "success":
         return "passed" if obs == "success" else "unexpected_revert"
     if exp == "revert":
@@ -116,9 +120,9 @@ def interpret(sdef: ScenarioDef, run: ForgeRun, out_dir: Path, reg: Registry, la
     steps = []
     for raw in result.get("steps", []):
         s = dict(raw)
-        s["step_status"] = step_status(s)
         if s.get("revert_data") and s["revert_data"] != "0x":
             s["revert"] = decode_revert(s["revert_data"], reg)
+        s["step_status"] = step_status(s)
         ids = (trace.get("steps") or {}).get(s["name"], [])
         s["trace_nodes"] = ids
         if s["observed"] == "revert" and ids:
@@ -142,12 +146,36 @@ def interpret(sdef: ScenarioDef, run: ForgeRun, out_dir: Path, reg: Registry, la
     if not steps:
         return Interpretation("inconclusive", "The scenario recorded no steps", forge_status, steps, trace, meta)
 
-    violated = [s for s in steps if not s.get("expectation_met", True)]
+    not_tested = [s for s in steps if s["step_status"] == "not_tested"]
+    violated = [s for s in steps if not s.get("expectation_met", True) and s["step_status"] != "not_tested"]
     not_applied = [s for s in steps if s["name"].startswith("condition_")]
+    creation = position_creation(steps)
+    meta["position_creation"] = creation
+    untested = (
+        f"; {len(not_tested)} step(s) not tested because no position was created: "
+        + ", ".join(s["name"] for s in not_tested[:4])
+        if not_tested
+        else ""
+    )
     if violated:
         only_reverts = all(s["step_status"] == "unexpected_revert" for s in violated)
         status = "unexpected_revert" if only_reverts else "failed"
-        reason = f"{len(violated)} LP expectation(s) not met: " + ", ".join(s["name"] for s in violated[:6])
+        lead = (
+            f"Position creation rejected at {creation['step']}"
+            + (f" ({creation['revert']})" if creation.get("revert") else "")
+            + ". "
+            if creation["status"] == "rejected"
+            else ""
+        )
+        reason = (
+            lead
+            + f"{len(violated)} LP expectation(s) not met: "
+            + ", ".join(s["name"] for s in violated[:6])
+            + untested
+        )
+    elif not_tested:
+        status = "inconclusive"
+        reason = "No LP position existed for the tested steps" + untested
     elif not_applied:
         status = "partial"
         reason = "Some conditions could not be applied: " + ", ".join(
@@ -245,7 +273,7 @@ def observed_findings(
     if interp.status in ("infra_error", "skipped", "unsupported", "timed_out", "cancelled"):
         return ids
     for s in interp.steps:
-        if s.get("expectation_met", True):
+        if s.get("expectation_met", True) or s.get("step_status") == "not_tested":
             continue
         rule = _rule(scenario, s)
         if rule is None:

@@ -47,14 +47,21 @@ Every number is returned as `{value, tag, basis}`:
 
 | Tag | Meaning |
 |---|---|
-| `on-chain` | Read at the pinned block (price, pool liquidity), or derived from it with the exact math above |
-| `measured` | Taken from an executed simulation run |
+| `live` | Pool state read at the chain's latest block when the comparison ran (default) |
+| `historical` | Pool state from the scan snapshot at its pinned block (`state_source: "scan"`) |
+| `measured` | Taken from an executed simulation run, at that run's fork block |
 | `hypothetical` | Depends on an assumption that is stated next to it |
 | `unavailable` | Cannot be computed honestly from the data available. The reason is given |
 
 ### Baseline
 
-Position principal at the current price, the position's share of active liquidity, and range state.
+Pool facts (price, tick, active liquidity) carry the `live` or `historical` tag of their source.
+The position itself is a model built from your inputs and is tagged `hypothetical`: its deposits,
+value, range state, and the share of active liquidity it *would* hold if added. It is not an
+existing on-chain position. Live state is read through `app/services/live_pool.py`: chain id is
+verified, the head is cached for `HOOKLENS_LIVE_HEAD_TTL_S` seconds, state is cached per block, and
+concurrent reads of the same block share one RPC round trip. An RPC failure is an error; the scan
+snapshot is never substituted silently.
 
 ### Price scenarios (hypothetical)
 
@@ -72,10 +79,17 @@ Position principal at the current price, the position's share of active liquidit
 
 These come from a selected simulation:
 
-- **Withdrawal outcome.** The conditions under which removal succeeded or reverted, taken from
-  the withdrawal, oracle and upgrade scenarios. When removal reverted, the decoded reason is shown.
-  The removal reverted entirely, so the position's full on-chain value is reported as not
-  withdrawable while that condition holds.
+- **Position creation.** `created`, `rejected` (with the revert) or `not_attempted`, from the
+  scenario's first add.
+- **Withdrawal outcome.** `withdrawal.status` is `completed`, `blocked`, `not_tested`,
+  `unsupported` or `execution_error`, taken from the withdrawal, oracle and upgrade scenarios. A
+  removal counts as blocked only when the harness held a position (`position_liquidity_before > 0`,
+  harness ≥ 1.1.0) and the removal reverted. Removals that reverted with
+  `CannotUpdateEmptyPosition()` because no position was ever created are listed under
+  `withdrawal_not_tested`, never as blocked. `recover_after_*` successes are listed under
+  `withdrawal_recovered_after`, not as success under the condition.
+- **Block references.** `fork_block`, `state_block` and `blocks_since_simulation` keep the
+  historical run separate from the state above it. Stored simulation results are never rewritten.
 - **Fees.** The LP fee observed in the fork's `Swap` events: the baseline, and the maximum after an
   owner-initiated change.
 - **Range comparison.** Whether the simulated position used the same range as the user's

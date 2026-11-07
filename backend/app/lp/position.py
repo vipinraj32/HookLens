@@ -124,7 +124,7 @@ def build_position(
 ) -> tuple[Position, list[str]]:
     notes: list[str] = []
     if not pool_state or not pool_state.get("initialized"):
-        raise AppError("pool_not_initialized", "The pool is not initialized at the pinned block.", status_code=422)
+        raise AppError("pool_not_initialized", "The pool is not initialized at the selected block.", status_code=422)
     if dec0 is None or dec1 is None:
         raise AppError(
             "decimals_unknown",

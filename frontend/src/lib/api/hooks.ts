@@ -32,7 +32,14 @@ export const keys = {
   report: (id: string) => ["report", id] as const,
   explanations: (scanId: string, fid: string) => ["expl", scanId, fid] as const,
   job: (id: string) => ["job", id] as const,
+  livePool: (scanId: string, poolId: string) => ["live-pool", scanId, poolId] as const,
 };
+
+/** Live pool state refresh interval (ms). 0 disables polling. Configurable at build time. */
+export const LIVE_REFRESH_MS = (() => {
+  const v = Number(process.env.NEXT_PUBLIC_LIVE_REFRESH_MS ?? 15_000);
+  return Number.isFinite(v) && v >= 0 ? v : 15_000;
+})();
 
 export function useWorkerHealth() {
   return useQuery({
@@ -209,6 +216,34 @@ export function useCreateSimulation(scanId: string) {
 export function useCancelJob() {
   return useMutation({
     mutationFn: (jobId: string) => api.post(`/jobs/${jobId}/cancel`, M.Job),
+  });
+}
+
+/**
+ * Current pool state at the chain's latest block. One query per pool is shared by every component
+ * (TanStack deduplicates), polls only while the tab is visible, and the server caches state per
+ * block, so polling never re-reads a block it has already seen.
+ */
+export function useLivePool(scanId: string, poolId: string | undefined) {
+  return useQuery({
+    queryKey: keys.livePool(scanId, poolId ?? ""),
+    queryFn: ({ signal }) =>
+      api.get(`/scans/${scanId}/pools/${poolId}/live`, M.LivePool, { signal, retries: 0, timeoutMs: 20_000 }),
+    enabled: !!poolId,
+    refetchInterval: LIVE_REFRESH_MS || false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 3_000,
+    retry: false,
+  });
+}
+
+/** Bypass the server's short head cache and store the result under the shared live-pool key. */
+export function useRefreshLivePool(scanId: string, poolId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.get(`/scans/${scanId}/pools/${poolId}/live?refresh=true`, M.LivePool, { retries: 0, timeoutMs: 20_000 }),
+    onSuccess: (data) => qc.setQueryData(keys.livePool(scanId, poolId ?? ""), data),
   });
 }
 

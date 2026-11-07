@@ -1,11 +1,14 @@
 """Position valuation with explicit provenance on every number.
 
 Tags:
-  on-chain      read from chain state at the pinned block (pool price, liquidity) or derived
-                from it with exact v4 math
-  measured      taken from an executed simulation run (amounts, fees, revert outcomes)
-  hypothetical  depends on an assumption stated next to it (e.g. a price move)
+  live          pool state read from the chain at its latest block (block, hash and time attached)
+  historical    pool state from a scan snapshot at its pinned block
+  measured      observed in an executed fork simulation (amounts, fees, revert outcomes)
+  hypothetical  depends on an assumption or on your inputs: the modelled position, price moves
   unavailable   cannot be computed honestly from the available data (reason given)
+
+The modelled position is never an on-chain LP position: it is what your inputs would hold at the
+stated pool state. Its figures are therefore tagged hypothetical even when the pool state is live.
 """
 
 from __future__ import annotations
@@ -16,8 +19,15 @@ from typing import Any
 
 from app.lp import math as lpm
 from app.lp.position import Position, fmt_decimal, human_price, to_human
+from app.simulation.positions import position_creation, withdrawal_summary
 
 DEFAULT_PRICE_MOVES = (-0.5, -0.2, -0.1, 0.0, 0.1, 0.2, 0.5)
+
+SCENARIO_ASSUMPTIONS = [
+    "The pool price moves instantly to the stated level; nothing else changes.",
+    "No trading fees are earned and no hook effects are applied.",
+    "Hold value keeps the deposited token amounts unchanged.",
+]
 
 
 def _frac_to_human(v: Fraction, decimals: int) -> str:
@@ -28,53 +38,68 @@ def _tagged(value: Any, tag: str, basis: str, **extra: Any) -> dict[str, Any]:
     return {"value": value, "tag": tag, "basis": basis, **extra}
 
 
-def baseline(pos: Position, pool_liquidity: int, sym0: str, sym1: str) -> dict[str, Any]:
+def baseline(
+    pos: Position,
+    pool_liquidity: int,
+    sym0: str,
+    sym1: str,
+    *,
+    state_tag: str = "historical",
+    state_label: str = "at the pinned block",
+) -> dict[str, Any]:
+    """Pool facts tagged `state_tag` (live or historical); modelled-position figures hypothetical."""
     a0, a1 = pos.deposit()
     value1 = pos.value_in_token1(a0, a1, pos.sqrt_price_x96)
     in_range = pos.range_state() == "in-range"
     share = Fraction(pos.liquidity, pool_liquidity + pos.liquidity) if in_range else Fraction(0)
+    model = "modelled position"
     return {
-        "range_state": _tagged(pos.range_state(), "on-chain", "current tick vs position ticks"),
         "price": _tagged(
             fmt_decimal(human_price(pos.sqrt_price_x96, pos.dec0, pos.dec1)),
-            "on-chain",
-            f"slot0.sqrtPriceX96 at pinned block ({sym1} per {sym0})",
+            state_tag,
+            f"slot0.sqrtPriceX96 {state_label} ({sym1} per {sym0})",
         ),
         "price_inverted": _tagged(
             fmt_decimal(1 / human_price(pos.sqrt_price_x96, pos.dec0, pos.dec1)),
-            "on-chain",
-            f"1 / price ({sym0} per {sym1})",
+            state_tag,
+            f"1 / price ({sym0} per {sym1}) {state_label}",
         ),
+        "current_tick": _tagged(pos.current_tick, state_tag, f"slot0.tick {state_label}"),
+        "pool_active_liquidity": _tagged(str(pool_liquidity), state_tag, f"PoolManager liquidity {state_label}"),
+        "range_state": _tagged(pos.range_state(), "hypothetical", f"your range vs the current tick {state_label}"),
         "price_lower": _tagged(
             fmt_decimal(human_price(pos.sqrt_lower, pos.dec0, pos.dec1)),
-            "on-chain",
-            "TickMath.getSqrtPriceAtTick(tick_lower)",
+            "hypothetical",
+            "your lower tick, TickMath.getSqrtPriceAtTick",
         ),
         "price_upper": _tagged(
             fmt_decimal(human_price(pos.sqrt_upper, pos.dec0, pos.dec1)),
-            "on-chain",
-            "TickMath.getSqrtPriceAtTick(tick_upper)",
+            "hypothetical",
+            "your upper tick, TickMath.getSqrtPriceAtTick",
         ),
-        "liquidity": _tagged(str(pos.liquidity), "on-chain", "LiquidityAmounts.getLiquidityForAmounts"),
+        "liquidity": _tagged(str(pos.liquidity), "hypothetical", f"{model}: LiquidityAmounts.getLiquidityForAmounts"),
         "deposit_amount0": _tagged(
-            to_human(a0, pos.dec0), "on-chain", "SqrtPriceMath.getAmount0Delta (round up)", raw=str(a0)
+            to_human(a0, pos.dec0), "hypothetical", f"{model}: SqrtPriceMath.getAmount0Delta (round up)", raw=str(a0)
         ),
         "deposit_amount1": _tagged(
-            to_human(a1, pos.dec1), "on-chain", "SqrtPriceMath.getAmount1Delta (round up)", raw=str(a1)
+            to_human(a1, pos.dec1), "hypothetical", f"{model}: SqrtPriceMath.getAmount1Delta (round up)", raw=str(a1)
         ),
         "value_in_token1": _tagged(
-            _frac_to_human(value1, pos.dec1), "on-chain", f"amount0 x price + amount1, in {sym1}"
+            _frac_to_human(value1, pos.dec1),
+            "hypothetical",
+            f"{model} valued at the price {state_label}: amount0 x price + amount1, in {sym1}",
         ),
         "share_of_active_liquidity": _tagged(
             fmt_decimal(Decimal(share.numerator) / Decimal(share.denominator) * 100, 6) if share else "0",
-            "on-chain",
-            "position L / (pool active L + position L), percent; 0 when out of range",
+            "hypothetical",
+            "share this modelled position would hold if it were added: L / (pool active L + L), percent; "
+            "0 when out of range. It is not an existing share.",
         ),
         "fee_income": _tagged(
             None,
             "unavailable",
-            "Fee income requires future volume, which is not estimated. "
-            "Measured fees from simulation runs are reported separately.",
+            "Future fee income needs future volume, which is not estimated. "
+            "Fees observed in a simulation are reported separately as measured.",
         ),
     }
 
@@ -131,17 +156,29 @@ def _amt(step: dict[str, Any], k: str) -> int:
         return 0
 
 
-def simulation_effects(sim: Any, pos: Position, value_token1: Fraction) -> dict[str, Any]:
-    """Measured outcomes from a simulation, and what they imply for this position."""
+def simulation_effects(
+    sim: Any, pos: Position, value_token1: Fraction, *, state_block: int | None = None
+) -> dict[str, Any]:
+    """Measured outcomes from a past simulation, and what they imply for this modelled position.
+
+    Withdrawals count as blocked only when the harness held a real position and its removal reverted;
+    removals that had no position to remove are reported as not tested.
+    """
     if sim is None:
-        return {"tag": "unavailable", "reason": "No simulation selected. Run the Adversarial Lab to measure effects."}
+        return {"tag": "unavailable", "reason": "No simulation applied."}
     runs = {r.scenario_id: r for r in sim.runs}
     spec_pos = (sim.spec or {}).get("position") or {}
     same_range = spec_pos.get("tick_lower") == pos.tick_lower and spec_pos.get("tick_upper") == pos.tick_upper
     effects: dict[str, Any] = {
+        "source": "historical_simulation",
         "simulation_id": sim.id,
         "status": sim.status,
         "fork_block": sim.fork_block,
+        "fork_block_hash": getattr(sim, "fork_block_hash", None),
+        "state_block": state_block,
+        "blocks_since_simulation": (
+            state_block - sim.fork_block if state_block is not None and sim.fork_block is not None else None
+        ),
         "simulated_position": {
             "tick_lower": spec_pos.get("tick_lower"),
             "tick_upper": spec_pos.get("tick_upper"),
@@ -149,34 +186,58 @@ def simulation_effects(sim: Any, pos: Position, value_token1: Fraction) -> dict[
         },
         "same_range_as_simulation": same_range,
     }
+
+    wd_summary = withdrawal_summary(runs)
+    creation = wd_summary["position_creation"]
+    if creation["status"] == "not_attempted":
+        # No withdrawal-relevant scenario ran: use any scenario that tried to add liquidity.
+        for r in runs.values():
+            c = position_creation(list(r.steps or []))
+            if c["status"] != "not_attempted":
+                creation = {**c, "scenario": r.scenario_id}
+                break
+    effects["position_creation"] = {**creation, "tag": "measured", "fork_block": sim.fork_block}
+
     blocked: list[dict[str, Any]] = []
-    available: list[str] = []
-    for sid in ("withdrawal_failure", "oracle_failure", "admin_upgrade"):
-        r = runs.get(sid)
-        if r is None or r.status in ("unsupported", "infra_error", "cancelled", "skipped", "timed_out", "queued"):
-            continue
-        for s in r.steps or []:
-            if not (s["name"].startswith("remove_under_") or s["name"] == "remove_after_upgrade"):
-                continue
-            cond = s.get("condition")
-            if s.get("observed") == "revert":
-                if not any(b["condition"] == cond for b in blocked):
-                    blocked.append(
-                        {
-                            "condition": cond,
-                            "scenario": sid,
-                            "step": s["name"],
-                            "revert": (s.get("revert") or {}).get("message"),
-                            "tag": "measured",
-                            "position_value_unwithdrawable_token1": _frac_to_human(value_token1, pos.dec1),
-                            "value_basis": "Removal reverted entirely in the simulation, so the full position value "
-                            "(on-chain valuation) is not withdrawable while the condition holds.",
-                        }
-                    )
-            elif cond not in available:
-                available.append(cond)
+    succeeded: list[str] = []
+    recovered: list[str] = []
+    not_tested: list[dict[str, Any]] = []
+    for o in wd_summary["outcomes"]:
+        cond = o["condition"]
+        if o["outcome"] == "blocked":
+            if not any(x["condition"] == cond for x in blocked):
+                blocked.append(
+                    {
+                        "condition": cond,
+                        "scenario": o["scenario"],
+                        "step": o["step"],
+                        "revert": o["revert"],
+                        "tag": "measured",
+                        "position_value_unwithdrawable_token1": _frac_to_human(value_token1, pos.dec1),
+                        "value_basis": "The harness held a position and its removal reverted entirely, so the full "
+                        "value of this modelled position would not be withdrawable while the condition holds.",
+                    }
+                )
+        elif o["outcome"] == "completed" and str(o["step"]).startswith("recover_after_"):
+            # Runs after the condition was cleared: evidence of recovery, not of success under it.
+            if cond not in recovered:
+                recovered.append(cond)
+        elif o["outcome"] == "completed":
+            if cond not in succeeded:
+                succeeded.append(cond)
+        else:
+            not_tested.append({**o, "reason": "No position was created, so there was nothing to withdraw."})
+    effects["withdrawal"] = {
+        "status": wd_summary["status"],
+        "tag": "measured",
+        "unsupported_scenarios": wd_summary["unsupported_scenarios"],
+        "execution_error_scenarios": wd_summary["execution_error_scenarios"],
+        "outcomes": wd_summary["outcomes"],
+    }
     effects["withdrawal_blocked_under"] = blocked
-    effects["withdrawal_succeeded_under"] = available
+    effects["withdrawal_succeeded_under"] = succeeded
+    effects["withdrawal_recovered_after"] = recovered
+    effects["withdrawal_not_tested"] = not_tested
 
     fee = runs.get("fee_escalation")
     if fee is not None and fee.steps:

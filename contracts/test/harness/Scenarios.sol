@@ -190,17 +190,28 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         uint128 posLiq = _positionLiquidity(lp);
         r = _remove(lp, posLiq / 2);
-        _record(
-            Step("partial_remove_50pct", "baseline", "baseline", "success", false, "Remove half of the position"), r
+        _recordWithMetrics(
+            Step("partial_remove_50pct", "baseline", "baseline", "success", false, "Remove half of the position"),
+            r,
+            _posMetric(posLiq)
         );
         posLiq = _positionLiquidity(lp);
         r = _remove(lp, posLiq);
-        _record(Step("full_remove", "baseline", "baseline", "success", false, "Remove the remaining position"), r);
+        _recordWithMetrics(
+            Step("full_remove", "baseline", "baseline", "success", false, "Remove the remaining position"),
+            r,
+            _posMetric(posLiq)
+        );
 
         r = _add(lp, liquidity);
         _record(Step("re_add_liquidity", "repeat", "baseline", "success", false, "Repeated add"), r);
-        r = _remove(lp, _positionLiquidity(lp));
-        _record(Step("repeat_full_remove", "repeat", "baseline", "success", false, "Repeated full removal"), r);
+        posLiq = _positionLiquidity(lp);
+        r = _remove(lp, posLiq);
+        _recordWithMetrics(
+            Step("repeat_full_remove", "repeat", "baseline", "success", false, "Repeated full removal"),
+            r,
+            _posMetric(posLiq)
+        );
 
         for (uint256 i; i < cfg.conditions.length; i++) {
             _withdrawUnderCondition(cfg, cfg.conditions[i]);
@@ -240,8 +251,10 @@ abstract contract Scenarios is HookLensScenarioBase {
 
         uint128 posLiq = _positionLiquidity(lp);
         r = _remove(lp, posLiq);
-        _record(
-            Step(string.concat("remove_under_", condition), "adversarial", condition, "success", privileged, why), r
+        _recordWithMetrics(
+            Step(string.concat("remove_under_", condition), "adversarial", condition, "success", privileged, why),
+            r,
+            _posMetric(posLiq)
         );
 
         if (!r.ok) {
@@ -250,7 +263,7 @@ abstract contract Scenarios is HookLensScenarioBase {
             _clearCondition(cfg, condition);
             posLiq = _positionLiquidity(lp);
             OpResult memory rec = _remove(lp, posLiq);
-            _record(
+            _recordWithMetrics(
                 Step(
                     string.concat("recover_after_", condition),
                     "recovery",
@@ -259,7 +272,8 @@ abstract contract Scenarios is HookLensScenarioBase {
                     privileged,
                     "Condition removed, removal retried"
                 ),
-                rec
+                rec,
+                _posMetric(posLiq)
             );
         }
         vm.clearMockedCalls();
@@ -409,8 +423,9 @@ abstract contract Scenarios is HookLensScenarioBase {
                 ),
                 r
             );
-            r = _remove(lp, _positionLiquidity(lp));
-            _record(
+            uint128 oracleLiq = _positionLiquidity(lp);
+            r = _remove(lp, oracleLiq);
+            _recordWithMetrics(
                 Step(
                     string.concat("remove_under_", conds[i]),
                     "adversarial",
@@ -419,7 +434,8 @@ abstract contract Scenarios is HookLensScenarioBase {
                     false,
                     "LP removal while oracle condition holds"
                 ),
-                r
+                r,
+                _posMetric(oracleLiq)
             );
             vm.clearMockedCalls();
             vm.revertToState(snap);
@@ -781,8 +797,9 @@ abstract contract Scenarios is HookLensScenarioBase {
                     ""
                 );
                 if (ok) {
-                    r = _remove(lp, _positionLiquidity(lp));
-                    _record(
+                    uint128 upgLiq = _positionLiquidity(lp);
+                    r = _remove(lp, upgLiq);
+                    _recordWithMetrics(
                         Step(
                             "remove_after_upgrade",
                             "upgrade",
@@ -791,7 +808,8 @@ abstract contract Scenarios is HookLensScenarioBase {
                             true,
                             "LP removal after an authorized upgrade"
                         ),
-                        r
+                        r,
+                        _posMetric(upgLiq)
                     );
                 }
             }

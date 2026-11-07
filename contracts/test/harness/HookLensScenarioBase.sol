@@ -27,7 +27,7 @@ abstract contract HookLensScenarioBase is Test {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
-    string internal constant HARNESS_VERSION = "hooklens-harness/1.0.0";
+    string internal constant HARNESS_VERSION = "hooklens-harness/1.1.0";
 
     bytes32 internal constant SWAP_EVENT_SIG =
         keccak256("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)");
@@ -461,5 +461,12 @@ abstract contract HookLensScenarioBase is Test {
 
     function _metricU(string memory k, uint256 v) internal pure returns (string memory) {
         return string.concat("\"", k, "\":\"", vm.toString(v), "\"");
+    }
+
+    /// @dev LP position liquidity read immediately before a removal. Lets the backend tell a removal
+    ///      that reverted with a live position (a real withdrawal block) from one that had nothing
+    ///      to remove because an earlier add failed.
+    function _posMetric(uint128 liq) internal pure returns (string memory) {
+        return _metricU("position_liquidity_before", liq);
     }
 }

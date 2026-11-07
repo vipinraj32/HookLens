@@ -315,6 +315,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/scans/{scan_id}/pools/{pool_id}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live Pool State
+         * @description Current pool state at the chain's latest block, with block number, hash, time and fetch time.
+         *
+         *     The pool must belong to the scan (and so to its hook and chain). `refresh=true` bypasses the
+         *     short head cache; state for a given block is immutable and stays cached.
+         */
+        get: operations["live_pool_state_v1_scans__scan_id__pools__pool_id__live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/positions/compare": {
         parameters: {
             query?: never;
@@ -361,6 +384,26 @@ export interface paths {
         put?: never;
         /** Post Report */
         post: operations["post_report_v1_scans__scan_id__reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Workspace Reports
+         * @description All reports in the caller's workspace, newest first, with the scanned hook's identity.
+         */
+        get: operations["list_workspace_reports_v1_reports_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -461,7 +504,10 @@ export interface components {
             amount1_raw?: string | null;
             /** Liquidity */
             liquidity?: string | null;
-            /** Price Moves */
+            /**
+             * Price Moves
+             * @description Fractional price moves, e.g. -0.2 for -20%. Must be > -1.
+             */
             price_moves?: number[] | null;
             /**
              * Price Orientation
@@ -470,6 +516,13 @@ export interface components {
              * @enum {string}
              */
             price_orientation: "token1_per_token0" | "token0_per_token1";
+            /**
+             * State Source
+             * @description live: read pool state from the chain at its latest block now (fails if it cannot be read; never falls back). scan: use the scan's historical snapshot at its pinned block.
+             * @default live
+             * @enum {string}
+             */
+            state_source: "live" | "scan";
         };
         /** ContractOut */
         ContractOut: {
@@ -1580,6 +1633,42 @@ export interface operations {
             };
         };
     };
+    live_pool_state_v1_scans__scan_id__pools__pool_id__live_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                scan_id: string;
+                pool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     compare_v1_positions_compare_post: {
         parameters: {
             query?: never;
@@ -1698,6 +1787,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_workspace_reports_v1_reports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                chain_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

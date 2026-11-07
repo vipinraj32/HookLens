@@ -141,6 +141,7 @@ export function StepDetail({ run, step, pool, hook }: { run: ScenarioRun; step: 
   const logs = frames.reduce((a, n) => a + (n.log_count ?? 0), 0);
   const hasLogInfo = frames.some((n) => n.log_count !== undefined);
   const met = step.expectation_met;
+  const noPosition = step.step_status === "not_tested";
 
   return (
     <Card>
@@ -161,10 +162,12 @@ export function StepDetail({ run, step, pool, hook }: { run: ScenarioRun; step: 
             <p className="mt-1 font-mono text-sm">{step.lp_expectation}</p>
             <p className="mt-1 text-xs text-faint">condition: {step.condition}</p>
           </div>
-          <div className={cn("rounded-lg border p-3", met ? "border-ok/30 bg-ok/5" : "border-bad/30 bg-bad/5")}>
+          <div className={cn("rounded-lg border p-3", noPosition ? "border-line bg-surface-2" : met ? "border-ok/30 bg-ok/5" : "border-bad/30 bg-bad/5")}>
             <p className="text-[11px] uppercase tracking-wide text-faint">Observed on fork</p>
-            <p className={cn("mt-1 font-mono text-sm", met ? "text-ok" : "text-bad")}>{step.observed}</p>
-            <p className="mt-1 text-xs text-faint">{met ? "matches the expectation" : "does not match the expectation"}</p>
+            <p className={cn("mt-1 font-mono text-sm", noPosition ? "text-muted" : met ? "text-ok" : "text-bad")}>{step.observed}</p>
+            <p className="mt-1 text-xs text-faint">
+              {noPosition ? "not tested: no position existed" : met ? "matches the expectation" : "does not match the expectation"}
+            </p>
           </div>
         </div>
 

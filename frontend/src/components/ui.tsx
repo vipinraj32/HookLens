@@ -134,6 +134,7 @@ const STATUS_TONE: Record<string, string> = {
   queued: "text-muted border-line bg-surface-2",
   pending: "text-muted border-line bg-surface-2",
   skipped: "text-faint border-line bg-surface-2",
+  not_tested: "text-faint border-line bg-surface-2",
   unsupported: "text-faint border-line bg-surface-2",
   unavailable: "text-faint border-line bg-surface-2",
   cancelled: "text-faint border-line bg-surface-2",
@@ -156,7 +157,9 @@ export function StatusBadge({ status, className }: { status: string; className?:
 
 const TAG_TONE: Record<string, string> = {
   "on-chain": "text-fg border-line-strong",
-  measured: "text-ok border-ok/40",
+  live: "text-ok border-ok/40",
+  historical: "text-muted border-line-strong",
+  measured: "text-sev-low border-sev-low/40",
   hypothetical: "text-warn border-warn/40",
   unavailable: "text-faint border-line",
   "source-ast": "text-sev-low border-sev-low/40",

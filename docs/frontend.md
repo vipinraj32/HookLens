@@ -113,6 +113,9 @@ accounting scenario records. If neither exists for a run, the panel is not rende
   failures, and normalised errors.
 - `src/lib/api/hooks.ts`: TanStack Query hooks. Scans poll every 3 s until they reach a terminal
   status, and jobs stream over SSE with a polling fallback (`src/lib/api/jobs.ts`).
+- `useLivePool` polls `GET /v1/scans/{id}/pools/{pool}/live` every `NEXT_PUBLIC_LIVE_REFRESH_MS`
+  (default 15000; 0 disables) while the tab is visible. The LP page shows chain, block, block age
+  and a Refresh button, and recomputes a live comparison when a newer block arrives.
 - Backend addition for this UI: `GET /v1/reports` (workspace-scoped, paginated, optional
   `chain_id`). It returns report metadata plus the scan's `chain_id` and `hook_address`, and never
   the report content. A test is in `backend/tests/test_jobs_api.py`.

@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     rpc_timeout_s: float = 20.0
     rpc_max_retries: int = 3
     pin_confirmations: int = 2  # default scan block = head - N on non-local chains
+    # Live pool state (LP exposure). The chain head is cached briefly so concurrent requests share one
+    # RPC round trip; pool state is cached per block, so a new block always means a fresh read.
+    live_head_ttl_s: float = 4.0
+    live_rpc_timeout_s: float = 10.0
+    live_state_cache_size: int = 256
     log_scan_chunk_blocks: int = 50_000
     log_scan_max_chunks: int = 120
 
