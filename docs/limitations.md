@@ -13,7 +13,13 @@ HookLens reports what it analysed and executed. It does not certify safety. Spec
   the PoolManager deployment block and covers at most
   `log_scan_max_chunks × log_scan_chunk_blocks` blocks (6,000,000 by default). Pools created later
   are not found unless a `pool_id` is given. When the RPC rejects log ranges (free-plan caps), discovery uses
-  Etherscan's log API instead (needs `HOOKLENS_ETHERSCAN_API_KEY`; capped at 300 requests).
+  Etherscan's log API instead (needs `HOOKLENS_ETHERSCAN_API_KEY`; capped at 300 requests per scan).
+- On public chains, discovered pools go into a persistent pool index (`pool_index` tables): the first
+  scan on a chain reads every hooked pool since the PoolManager deployment (about 3–4 minutes on
+  mainnet through Etherscan), and later scans only read the blocks added since. The last 64 indexed
+  blocks are re-read on each update to absorb shallow reorgs. If a log scan stops early, the scan is
+  marked partial and the index records only the contiguous range it covered. Local chains are never
+  indexed.
 
 ## Simulation
 

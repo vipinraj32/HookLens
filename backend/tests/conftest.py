@@ -34,7 +34,29 @@ from app.jobs.dispatch import LocalDispatcher, set_dispatcher  # noqa: E402
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _enforce_string_lengths(session: object, _ctx: object, _instances: object) -> None:
+    """Fail like Postgres does when a value exceeds its VARCHAR length.
+
+    SQLite ignores declared lengths, so without this guard a too-long value only fails in production.
+    """
+    from sqlalchemy import String, inspect
+
+    for obj in list(session.new) + list(session.dirty):  # type: ignore[attr-defined]
+        for col in inspect(obj).mapper.columns:
+            if not isinstance(col.type, String) or not col.type.length:
+                continue
+            v = getattr(obj, col.key, None)
+            if isinstance(v, str) and len(v) > col.type.length:
+                raise AssertionError(
+                    f"{col.table.name}.{col.name} is VARCHAR({col.type.length}) but got {len(v)} chars: {v[:80]!r}"
+                )
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session as OrmSession
+
+    event.listen(OrmSession, "before_flush", _enforce_string_lengths)
     upgrade_head()
 
 

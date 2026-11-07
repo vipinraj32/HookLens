@@ -551,6 +551,17 @@ abstract contract Scenarios is HookLensScenarioBase {
     ///  (2) value is conserved across the tracked set {actors, PoolManager, hook} — tokens
     ///      leaving that set are reported, not assumed malicious (a hook may forward fees).
     function _checkStep(Step memory s, OpResult memory r, Snapshot memory before, uint256 actorIdx) internal {
+        _checkStep(s, r, before, actorIdx, "");
+    }
+
+    /// @param extraMetrics extra `"key":value` pairs (e.g. position_liquidity_before), or "".
+    function _checkStep(
+        Step memory s,
+        OpResult memory r,
+        Snapshot memory before,
+        uint256 actorIdx,
+        string memory extraMetrics
+    ) internal {
         Snapshot memory afterS = _snap();
         int256[2] memory actorChange =
             [afterS.bal[actorIdx][0] - before.bal[actorIdx][0], afterS.bal[actorIdx][1] - before.bal[actorIdx][1]];
@@ -583,6 +594,7 @@ abstract contract Scenarios is HookLensScenarioBase {
             ",\"value_conserved\":",
             conserved ? "true" : "false"
         );
+        if (bytes(extraMetrics).length > 0) m = string.concat(m, ",", extraMetrics);
         _recordWithMetrics(s, r, m);
         if (r.ok && !actorMatches) {
             // Invariant (1) broken: the actor's balance moved by something other than its BalanceDelta.
@@ -687,13 +699,29 @@ abstract contract Scenarios is HookLensScenarioBase {
             );
         }
 
+        uint128 pos1 = _positionLiquidity(lp);
         b = _snap();
-        r = _remove(lp, _positionLiquidity(lp));
-        _checkStep(Step("lp1_remove_all", "liquidity", "baseline", "success", false, "LP1 removes everything"), r, b, 0);
+        r = _remove(lp, pos1);
+        _checkStep(
+            Step("lp1_remove_all", "liquidity", "baseline", "success", false, "LP1 removes everything"),
+            r,
+            b,
+            0,
+            _posMetric(pos1)
+        );
 
+        int24 lo2 = tickLower + key.tickSpacing * 10;
+        int24 hi2 = tickUpper - key.tickSpacing * 10;
+        uint128 pos2 = _positionLiquidityAt(lp2, lo2, hi2);
         b = _snap();
-        r = lp2.modify(key, tickLower + key.tickSpacing * 10, tickUpper - key.tickSpacing * 10, -int256(liquidity / 2));
-        _checkStep(Step("lp2_remove_all", "liquidity", "baseline", "success", false, "LP2 removes everything"), r, b, 1);
+        r = lp2.modify(key, lo2, hi2, -int256(liquidity / 2));
+        _checkStep(
+            Step("lp2_remove_all", "liquidity", "baseline", "success", false, "LP2 removes everything"),
+            r,
+            b,
+            1,
+            _posMetric(pos2)
+        );
 
         _finish();
     }
@@ -858,8 +886,9 @@ abstract contract Scenarios is HookLensScenarioBase {
         r = _add(lp, liquidity);
         _swapExactIn(trader, true, swapAmount);
         _swapExactIn(trader, false, swapAmount1);
-        OpResult memory exitBefore = _remove(lp, _positionLiquidity(lp));
-        _record(
+        uint128 posBefore = _positionLiquidity(lp);
+        OpResult memory exitBefore = _remove(lp, posBefore);
+        _recordWithMetrics(
             Step(
                 "lp_added_before_swaps_exit",
                 "liquidity_ordering",
@@ -868,7 +897,8 @@ abstract contract Scenarios is HookLensScenarioBase {
                 false,
                 "LP exit after swaps occurred while in range"
             ),
-            exitBefore
+            exitBefore,
+            _posMetric(posBefore)
         );
         vm.revertToState(snap);
 
@@ -876,8 +906,9 @@ abstract contract Scenarios is HookLensScenarioBase {
         _swapExactIn(trader, true, swapAmount);
         _swapExactIn(trader, false, swapAmount1);
         r = _add(lp, liquidity);
-        OpResult memory exitAfter = _remove(lp, _positionLiquidity(lp));
-        _record(
+        uint128 posAfter = _positionLiquidity(lp);
+        OpResult memory exitAfter = _remove(lp, posAfter);
+        _recordWithMetrics(
             Step(
                 "lp_added_after_swaps_exit",
                 "liquidity_ordering",
@@ -886,7 +917,8 @@ abstract contract Scenarios is HookLensScenarioBase {
                 false,
                 "LP exit when swaps happened before joining"
             ),
-            exitAfter
+            exitAfter,
+            _posMetric(posAfter)
         );
         vm.revertToState(snap);
 

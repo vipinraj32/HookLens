@@ -87,6 +87,13 @@ class DiscoveryResult:
         }
 
 
+def _wanted(p: PoolInfo, hook: str | None) -> bool:
+    """Pools for `hook`, or every pool with a hook (for the pool index) when `hook` is None."""
+    if hook is None:
+        return p.hooks.lower() != ZERO_ADDRESS
+    return p.hooks.lower() == hook.lower()
+
+
 def _parse_initialize(entry: dict[str, Any]) -> PoolInfo:
     topics = entry["topics"]
     data = hex_to_bytes(entry["data"])
@@ -110,16 +117,17 @@ def _parse_initialize(entry: dict[str, Any]) -> PoolInfo:
 def discover_pools(
     rpc: RpcClient,
     chain: ChainConfig,
-    hook: str,
+    hook: str | None,
     to_block: int,
     *,
     pool_id: str | None = None,
     should_stop: Any = None,
+    from_block: int | None = None,
 ) -> DiscoveryResult:
     if not chain.pool_manager:
         return DiscoveryResult(status="failed", reason="No PoolManager is configured for this chain.")
     s = get_settings()
-    start = chain.pool_manager_deploy_block
+    start = chain.pool_manager_deploy_block if from_block is None else from_block
     res = DiscoveryResult(from_block=start, to_block=to_block, scanned_to=start - 1)
     chunk = s.log_scan_chunk_blocks
     topics: list[Any] = [INITIALIZE_TOPIC] + ([pool_id] if pool_id else [])
@@ -141,17 +149,17 @@ def discover_pools(
         except LogRangeTooLarge:
             if chunk <= 500:
                 reason = "The RPC endpoint refuses even small eth_getLogs ranges (provider plan limit)."
-                return _fallback(chain, hook, to_block, pool_id, should_stop, res, reason)
+                return _fallback(chain, hook, to_block, pool_id, should_stop, res, reason, start)
             chunk //= 4
             continue
         except RpcError as e:
-            return _fallback(chain, hook, to_block, pool_id, should_stop, res, e.message)
+            return _fallback(chain, hook, to_block, pool_id, should_stop, res, e.message, start)
         for entry in logs:
             try:
                 p = _parse_initialize(entry)
             except (ValueError, KeyError, IndexError):
                 continue
-            if p.hooks.lower() == hook.lower():
+            if _wanted(p, hook):
                 res.pools.append(p)
         res.scanned_to = end
         cur = end + 1
@@ -163,12 +171,13 @@ def discover_pools(
 
 def _fallback(
     chain: ChainConfig,
-    hook: str,
+    hook: str | None,
     to_block: int,
     pool_id: str | None,
     should_stop: Any,
     rpc_res: DiscoveryResult,
     rpc_reason: str,
+    from_block: int,
 ) -> DiscoveryResult:
     """Use the explorer's log index when the RPC cannot serve the scan (e.g. free-tier range limits)."""
     s = get_settings()
@@ -178,7 +187,11 @@ def _fallback(
             "" if chain.is_local else " Set HOOKLENS_ETHERSCAN_API_KEY to discover pools through Etherscan instead."
         )
         return rpc_res
-    res = discover_pools_etherscan(chain, hook, to_block, pool_id=pool_id, should_stop=should_stop)
+    res = discover_pools_etherscan(
+        chain, hook, to_block, pool_id=pool_id, should_stop=should_stop, from_block=rpc_res.scanned_to + 1
+    )
+    res.from_block = from_block
+    res.pools = rpc_res.pools + res.pools
     res.notes.insert(0, f"RPC log scan stopped ({rpc_reason}); pools were discovered through Etherscan instead.")
     return res
 
@@ -189,20 +202,23 @@ ETHERSCAN_MAX_REQUESTS = 300
 
 def discover_pools_etherscan(
     chain: ChainConfig,
-    hook: str,
+    hook: str | None,
     to_block: int,
     *,
     pool_id: str | None = None,
     should_stop: Any = None,
     transport: httpx.BaseTransport | None = None,
+    from_block: int | None = None,
 ) -> DiscoveryResult:
     """Discover pools from Etherscan v2 `logs/getLogs`, paging forward by block.
 
     Each response holds at most ETHERSCAN_PAGE logs in block order, so the next window starts at the
     last block seen; logs repeated at that boundary are de-duplicated by (tx hash, log index).
+    A short page is never taken as the end on its own: the scan is complete only once a query for
+    the remaining range returns no records.
     """
     s = get_settings()
-    start = chain.pool_manager_deploy_block
+    start = chain.pool_manager_deploy_block if from_block is None else from_block
     res = DiscoveryResult(from_block=start, to_block=to_block, scanned_to=start - 1, source="etherscan")
     if not chain.pool_manager or not s.etherscan_api_key:
         res.status, res.reason = "failed", "Etherscan discovery needs a PoolManager and HOOKLENS_ETHERSCAN_API_KEY."
@@ -243,6 +259,9 @@ def discover_pools_etherscan(
                 res.status = "partial" if res.pools else "failed"
                 res.reason = f"Etherscan log query failed: {str(body.get('message') or result)[:160]}"
                 return res
+            if not result:
+                res.scanned_to = to_block
+                return res
             last_block = cur
             for entry in result:
                 key = (str(entry.get("transactionHash")), str(entry.get("logIndex")))
@@ -254,14 +273,20 @@ def discover_pools_etherscan(
                 except (ValueError, KeyError, IndexError, TypeError):
                     continue
                 last_block = max(last_block, p.init_block)
-                if p.hooks.lower() == hook.lower():
+                if _wanted(p, hook):
                     res.pools.append(p)
-            if len(result) < ETHERSCAN_PAGE:
-                res.scanned_to = to_block
-                return res
-            res.scanned_to = last_block - 1
             if pool_id and res.pools:
+                res.scanned_to = last_block
                 return res
+            if len(result) < ETHERSCAN_PAGE:
+                # A short page holds every log up to its last block. Confirm the rest of the range is
+                # empty instead of assuming it (a truncated response would otherwise end the scan early).
+                res.scanned_to = last_block
+                if last_block >= to_block:
+                    return res
+                cur = last_block + 1
+                continue
+            res.scanned_to = last_block - 1
             # Continue from the last block seen (it may hold more logs); never stall on one block.
             cur = last_block if last_block > cur else cur + 1
     res.status = "partial"

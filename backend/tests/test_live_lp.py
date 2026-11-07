@@ -581,3 +581,50 @@ def test_live_endpoint_and_simulation_separation(client: Any, live_node: FakeNod
 
         stored = db.get(ScenarioRun, run_id)
         assert stored is not None and "step_status" not in stored.steps[2]
+
+
+def _write_scenario(tmp: Path, scenario: str, steps: list[dict[str, Any]]) -> None:
+    tmp.mkdir(parents=True, exist_ok=True)
+    (tmp / f"{scenario}.json").write_text(
+        json.dumps({"scenario": scenario, "block_number": 7, "infra_error": "", "steps": steps})
+    )
+
+
+def test_accounting_rejected_deposit_is_not_an_accounting_violation(tmp_path: Path) -> None:
+    """Mainnet case: the hook rejects deposits (LiquidityNotAllowed). The rejected adds moved no balances,
+    and LP2's later removal (SafeCastOverflow on an empty position) had nothing to remove."""
+    rejected = "0x90bfb865" + "00" * 64  # WrappedError(...) from the hook's beforeAddLiquidity
+    safecast = "0x93dafdf1"  # SafeCastOverflow(): removing a non-zero amount from an empty position
+    steps = [
+        _s("lp1_add", "revert", revert_data=rejected, met=False),
+        _s("lp2_add_narrow", "revert", revert_data=rejected, met=False),
+        _s("exact_in_0_for_1", "success"),
+        _s("lp1_remove_all", "revert", revert_data="0x" + EMPTY_POSITION_SELECTOR[2:], liq=0, met=False),
+        _s("lp2_remove_all", "revert", revert_data=safecast, liq=0, met=False),
+    ]
+    for st in steps:
+        st["phase"] = "baseline"
+    _write_scenario(tmp_path, "accounting_invariants", steps)
+    i = interpret(SCENARIOS["accounting_invariants"], ForgeRun("completed", 0, 100, {}, ""), tmp_path, Registry(), {})
+    st = {s["name"]: s["step_status"] for s in i.steps}
+    assert st["lp1_remove_all"] == st["lp2_remove_all"] == "not_tested"
+
+    col = Collector(scope=HOOK)
+    observed_findings(col, "accounting_invariants", i, simulation_id="s", repro="x")
+    rules = {f.rule_id for f in col.findings.values()}
+    assert not any(r.startswith("accounting_violation_") for r in rules)
+    assert rules == {"baseline_operation_failed_lp1_add", "baseline_operation_failed_lp2_add_narrow"}
+
+
+def test_a_real_accounting_violation_is_still_reported(tmp_path: Path) -> None:
+    steps = [
+        _s("lp1_add", "success"),
+        _s("invariant_exact_in_0_for_1", "revert", met=False, exp="conserved"),
+    ]
+    steps[1]["observed"] = "success"  # the swap succeeded but balances moved by more than its delta
+    steps[1]["phase"] = "invariant"
+    _write_scenario(tmp_path, "accounting_invariants", steps)
+    i = interpret(SCENARIOS["accounting_invariants"], ForgeRun("completed", 0, 100, {}, ""), tmp_path, Registry(), {})
+    col = Collector(scope=HOOK)
+    observed_findings(col, "accounting_invariants", i, simulation_id="s", repro="x")
+    assert "accounting_violation_invariant_exact_in_0_for_1" in {f.rule_id for f in col.findings.values()}

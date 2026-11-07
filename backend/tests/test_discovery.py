@@ -99,8 +99,67 @@ def test_etherscan_discovery_pages_by_block_and_dedupes(monkeypatch: pytest.Monk
         get_settings.cache_clear()
     assert res.status == "complete" and res.source == "etherscan"
     assert [p.pool_id[-2:] for p in res.pools] == ["02", "05"]  # each pool once, despite the overlap
-    assert seen_from == [100, 120, 130]  # each page restarts at the last block of the previous one
+    # Each full page restarts at the last block of the previous one; the short page at 130 is
+    # confirmed as the end by one more query for the rest of the range.
+    assert seen_from == [100, 120, 130, 141]
     assert res.scanned_to == 200
+
+
+def test_etherscan_short_page_is_not_taken_as_the_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A truncated (short) page must not end discovery: pools after it were silently missed before."""
+    import app.services.pools as pools
+
+    monkeypatch.setattr(pools, "ETHERSCAN_PAGE", 3)
+    monkeypatch.setattr(pools.time, "sleep", lambda _s: None)
+    monkeypatch.setenv("HOOKLENS_ETHERSCAN_API_KEY", "test-key")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    logs = [_log(110, 0, HOOK, 1), _log(120, 0, OTHER, 2), _log(150, 0, HOOK, 3), _log(160, 0, HOOK, 4)]
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        frm = int(request.url.params["fromBlock"])
+        page = [e for e in logs if int(e["blockNumber"], 16) >= frm]
+        if calls == 1:
+            page = page[:2]  # the service returns fewer records than exist (truncated response)
+        if not page:
+            return httpx.Response(200, json={"status": "0", "message": "No records found", "result": []})
+        return httpx.Response(200, json={"status": "1", "message": "OK", "result": page[:3]})
+
+    try:
+        res = discover_pools_etherscan(_chain(), HOOK, 200, transport=httpx.MockTransport(handler))
+    finally:
+        get_settings.cache_clear()
+    assert res.status == "complete" and res.scanned_to == 200
+    assert [p.pool_id[-2:] for p in res.pools] == ["01", "03", "04"]
+
+
+def test_discovery_without_hook_collects_every_hooked_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.services.pools as pools
+
+    monkeypatch.setattr(pools.time, "sleep", lambda _s: None)
+    monkeypatch.setenv("HOOKLENS_ETHERSCAN_API_KEY", "test-key")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    logs = [_log(110, 0, HOOK, 1), _log(120, 0, OTHER, 2), _log(130, 0, "0x" + "0" * 40, 3)]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        frm = int(request.url.params["fromBlock"])
+        page = [e for e in logs if int(e["blockNumber"], 16) >= frm]
+        if not page:
+            return httpx.Response(200, json={"status": "0", "message": "No records found", "result": []})
+        return httpx.Response(200, json={"status": "1", "message": "OK", "result": page})
+
+    try:
+        res = discover_pools_etherscan(_chain(), None, 200, transport=httpx.MockTransport(handler), from_block=105)
+    finally:
+        get_settings.cache_clear()
+    assert [p.pool_id[-2:] for p in res.pools] == ["01", "02"]  # hookless pool excluded
+    assert res.from_block == 105
 
 
 def test_etherscan_no_records_is_complete(monkeypatch: pytest.MonkeyPatch) -> None:

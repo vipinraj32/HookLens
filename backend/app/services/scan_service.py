@@ -16,6 +16,7 @@ from app.errors import AppError, RpcNotConfigured
 from app.jobs.dispatch import get_dispatcher
 from app.jobs.manager import JobContext, create_job, on_terminal, register
 from app.services.evm import validate_address, validate_pool_id
+from app.services.pool_index import discover_with_index
 from app.services.pools import discover_pools, read_pool_state, token_metadata
 from app.services.resolver import resolve_contract
 from app.services.rpc import RpcClient
@@ -139,7 +140,13 @@ def run_scan_job(jc: JobContext, payload: dict[str, Any]) -> dict[str, Any]:
         discovery: dict[str, Any] = {"status": "skipped"}
         if options.get("discover_pools", True):
             jc.update("pools", 0.4, "Searching PoolManager Initialize events for pools using this hook")
-            res = discover_pools(rpc, chain, resolved.address, block, pool_id=pool_id, should_stop=jc.cancel_requested)
+            if pool_id or chain.is_local:
+                # A pool id is a direct indexed-topic query; local dev chains can be reset, so never cached.
+                res = discover_pools(
+                    rpc, chain, resolved.address, block, pool_id=pool_id, should_stop=jc.cancel_requested
+                )
+            else:
+                res = discover_with_index(rpc, chain, resolved.address, block, should_stop=jc.cancel_requested)
             jc.check()
             discovery = res.to_dict()
             for p in res.pools[:20]:

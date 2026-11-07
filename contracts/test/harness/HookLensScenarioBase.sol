@@ -27,7 +27,7 @@ abstract contract HookLensScenarioBase is Test {
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
-    string internal constant HARNESS_VERSION = "hooklens-harness/1.1.0";
+    string internal constant HARNESS_VERSION = "hooklens-harness/1.2.0";
 
     bytes32 internal constant SWAP_EVENT_SIG =
         keccak256("Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)");
@@ -190,6 +190,10 @@ abstract contract HookLensScenarioBase is Test {
 
     function _positionLiquidity(LPActor a) internal view returns (uint128 liq) {
         (liq,,) = manager.getPositionInfo(key.toId(), address(lpRouter), tickLower, tickUpper, a.positionSalt());
+    }
+
+    function _positionLiquidityAt(LPActor a, int24 lo, int24 hi) internal view returns (uint128 liq) {
+        (liq,,) = manager.getPositionInfo(key.toId(), address(lpRouter), lo, hi, a.positionSalt());
     }
 
     /// @notice Input amount for a swap direction (token0 in when zeroForOne, else token1 in).

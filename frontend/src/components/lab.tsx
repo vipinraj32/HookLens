@@ -226,7 +226,12 @@ type Metrics = Record<string, string | boolean | number>;
 
 export function InvariantPanel({ run }: { run: ScenarioRun }) {
   const inv = run.steps.filter((s) => s.phase === "invariant");
-  const withMetrics = run.steps.filter((s) => (s as { metrics?: Metrics }).metrics);
+  // Only steps that carry invariant checks. Other steps also record metrics (e.g. position
+  // liquidity before a removal), which are not invariants and must not be listed as "not evaluated".
+  const withMetrics = run.steps.filter((s) => {
+    const m = (s as { metrics?: Metrics }).metrics;
+    return !!m && ("actor_delta_matches" in m || "value_conserved" in m);
+  });
   if (!inv.length && !withMetrics.length) return null;
   const checks: { label: string; key: keyof Metrics }[] = [
     { label: "Actor delta matches", key: "actor_delta_matches" },

@@ -210,7 +210,7 @@ def build_spec(scan: Any, contract: Any, options: dict[str, Any], *, run_dir_rel
             "source": "analyzer fact (owner variable read at the pinned block)" if owner else None,
             "method": "vm.prank inside the fork only; no keys are used or required",
         },
-        "harness": {"version": "hooklens-harness/1.1.0", "digest": harness_digest()},
+        "harness": {"version": "hooklens-harness/1.2.0", "digest": harness_digest()},
         "determinism": "The harness uses no randomness; identical spec + fork block reproduce identical results.",
         "facts_used": sorted(
             k

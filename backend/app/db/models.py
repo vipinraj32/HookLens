@@ -176,7 +176,7 @@ class Simulation(Base, TimestampMixin):
     fork_block: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fork_block_hash: Mapped[str | None] = mapped_column(String(66), nullable=True)
     harness_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    harness_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    harness_commit: Mapped[str | None] = mapped_column(String(128), nullable=True)  # "sha256:" + 64 hex
     spec: Mapped[dict[str, Any]] = mapped_column(default=dict)
     summary: Mapped[dict[str, Any]] = mapped_column(default=dict)
     error: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
@@ -240,7 +240,7 @@ class Report(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(24), default="ready")
     report_version: Mapped[str] = mapped_column(String(16))
     content: Mapped[dict[str, Any]] = mapped_column(default=dict)
-    content_hash: Mapped[str] = mapped_column(String(66))
+    content_hash: Mapped[str] = mapped_column(String(128))  # "sha256:" + 64 hex
     pdf_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     error: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
 
@@ -256,3 +256,39 @@ class AiExplanation(Base, TimestampMixin):
     model: Mapped[str | None] = mapped_column(String(64), nullable=True)
     content: Mapped[dict[str, Any] | None] = mapped_column(nullable=True)
     validation: Mapped[dict[str, Any]] = mapped_column(default=dict)
+
+
+class PoolIndexEntry(Base):
+    """A v4 pool that uses a hook, from the PoolManager's immutable `Initialize` event.
+
+    The hook address is not an indexed event topic, so finding a hook's pools means reading every
+    `Initialize` log. Those logs never change, so they are indexed once per chain and reused.
+    """
+
+    __tablename__ = "pool_index"
+    __table_args__ = (Index("ix_pool_index_chain_hooks", "chain_id", "hooks"),)
+
+    chain_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pool_id: Mapped[str] = mapped_column(String(66), primary_key=True)
+    hooks: Mapped[str] = mapped_column(String(42))  # lowercase
+    currency0: Mapped[str] = mapped_column(String(42))
+    currency1: Mapped[str] = mapped_column(String(42))
+    fee: Mapped[int] = mapped_column(Integer)
+    tick_spacing: Mapped[int] = mapped_column(Integer)
+    init_sqrt_price_x96: Mapped[str] = mapped_column(String(80))
+    init_tick: Mapped[int] = mapped_column(Integer)
+    init_block: Mapped[int] = mapped_column(Integer, index=True)
+    init_tx: Mapped[str | None] = mapped_column(String(66), nullable=True)
+
+
+class PoolIndexCursor(Base):
+    """How far the pool index of a chain is complete: every block in [from_block, scanned_to]."""
+
+    __tablename__ = "pool_index_cursor"
+
+    chain_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    pool_manager: Mapped[str] = mapped_column(String(42))
+    from_block: Mapped[int] = mapped_column(Integer)
+    scanned_to: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(16))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

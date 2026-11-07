@@ -241,6 +241,16 @@ def _rule(scenario: str, step: dict[str, Any]) -> tuple[str, Severity, str, str,
             "An account with no role changed hook configuration in the fork.",
             "Anyone can change behaviour that affects LP positions.",
         )
+    if scenario == "accounting_invariants" and not name.startswith("invariant_") and step.get("observed") == "revert":
+        # A reverted operation moved no balances, so no accounting invariant was tested by it. A
+        # rejected deposit or a failed removal is an operation failure, not an accounting violation.
+        return (
+            f"baseline_operation_failed_{name}",
+            Severity.HIGH,
+            f"Baseline operation failed: {name}",
+            "An ordinary LP or swap operation reverted in the accounting scenario; no balances moved.",
+            "Ordinary LP operations may fail with this hook.",
+        )
     if scenario == "accounting_invariants" or name.startswith("invariant_"):
         return (
             f"accounting_violation_{name}",
